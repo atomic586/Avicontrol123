@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "tailwindcss";
+
+@theme {
+  --color-avi-yellow: #F5B700;
+  --color-avi-dark: #1F2937;
+  --color-avi-light: #F9FAFB;
+}
+
+body {
+  background-color: var(--color-avi-light);
+  color: var(--color-avi-dark);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}

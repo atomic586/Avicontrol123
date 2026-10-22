@@ -1,0 +1,32 @@
+# Entornos virtuales
+venv/
+env/
+*/venv/
+*/env/
+
+# Variables de entorno (CRÍTICO: NO subir contraseñas)
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+db.sqlite3
+
+# Node
+node_modules/
+*/node_modules/
+dist/
+build/
+
+# VS Code
+.vscode/
+.idea/
+
+# Archivos estáticos
+staticfiles/
+media/
+
+# Logs
+*.log
