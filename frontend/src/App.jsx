@@ -1,35 +1,65 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { ClienteAuthProvider, useClienteAuth } from "./auth/ClienteAuthContext";
 import Layout from "./components/Layout";
-import Login from "./pages/Login";
+import LoginAdmin from "./pages/LoginAdmin";
+import LoginCliente from "./pages/LoginCliente";
+import RegistroCliente from "./pages/RegistroCliente";
 import Dashboard from "./pages/Dashboard";
-import Home from "./pages/Home";
+import PortalPublico from "./pages/PortalPublico";
+import HacerPedido from "./pages/HacerPedido";
+import MisPedidos from "./pages/MisPedidos";
 import Clientes from "./pages/Clientes";
 import Insumos from "./pages/Insumos";
 import Produccion from "./pages/Produccion";
 import Pedidos from "./pages/Pedidos";
 import Ventas from "./pages/Ventas";
+import Configuracion from "./pages/Configuracion";
 
-function RutaProtegida({ children }) {
+// Ruta protegida para ADMIN
+function RutaAdmin({ children }) {
   const { usuario, cargando } = useAuth();
   const location = useLocation();
   if (cargando) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-gray-500 font-medium">Cargando...</p></div>;
-  if (!usuario) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!usuario) return <Navigate to="/admin-login" state={{ from: location }} replace />;
   return <Layout>{children}</Layout>;
+}
+
+// Ruta protegida para CLIENTE
+function RutaCliente({ children }) {
+  const { cliente, cargando } = useClienteAuth();
+  if (cargando) return <div className="min-h-screen flex items-center justify-center bg-hueso"><p className="text-gray-500 font-medium">Cargando...</p></div>;
+  if (!cliente) return <Navigate to="/login" replace />;
+  return children;
 }
 
 function Rutas() {
   const { usuario } = useAuth();
+  const { cliente } = useClienteAuth();
+
   return (
     <Routes>
-      <Route path="/" element={usuario ? <Navigate to="/dashboard" replace /> : <Home />} />
-      <Route path="/login" element={usuario ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route path="/dashboard" element={<RutaProtegida><Dashboard /></RutaProtegida>} />
-      <Route path="/clientes" element={<RutaProtegida><Clientes /></RutaProtegida>} />
-      <Route path="/insumos" element={<RutaProtegida><Insumos /></RutaProtegida>} />
-      <Route path="/produccion" element={<RutaProtegida><Produccion /></RutaProtegida>} />
-      <Route path="/pedidos" element={<RutaProtegida><Pedidos /></RutaProtegida>} />
-      <Route path="/ventas" element={<RutaProtegida><Ventas /></RutaProtegida>} />
+      {/* PORTAL PÚBLICO */}
+      <Route path="/" element={<PortalPublico />} />
+      <Route path="/hacer-pedido" element={<HacerPedido />} />
+
+      {/* LOGIN CLIENTE */}
+      <Route path="/login" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <LoginCliente />} />
+      <Route path="/registro" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <RegistroCliente />} />
+      <Route path="/mis-pedidos" element={<RutaCliente><MisPedidos /></RutaCliente>} />
+
+      {/* LOGIN ADMIN (URL separada) */}
+      <Route path="/admin-login" element={usuario ? <Navigate to="/dashboard" replace /> : <LoginAdmin />} />
+
+      {/* PANEL ADMIN */}
+      <Route path="/dashboard" element={<RutaAdmin><Dashboard /></RutaAdmin>} />
+      <Route path="/clientes" element={<RutaAdmin><Clientes /></RutaAdmin>} />
+      <Route path="/insumos" element={<RutaAdmin><Insumos /></RutaAdmin>} />
+      <Route path="/produccion" element={<RutaAdmin><Produccion /></RutaAdmin>} />
+      <Route path="/pedidos" element={<RutaAdmin><Pedidos /></RutaAdmin>} />
+      <Route path="/ventas" element={<RutaAdmin><Ventas /></RutaAdmin>} />
+      <Route path="/configuracion" element={<RutaAdmin><Configuracion /></RutaAdmin>} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -38,7 +68,9 @@ function Rutas() {
 export default function App() {
   return (
     <AuthProvider>
-      <Rutas />
+      <ClienteAuthProvider>
+        <Rutas />
+      </ClienteAuthProvider>
     </AuthProvider>
   );
 }

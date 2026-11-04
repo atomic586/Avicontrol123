@@ -150,3 +150,22 @@ class VentaAdmin(admin.ModelAdmin):
     list_display = ("id", "pedido", "fecha", "monto_total", "forma_pago")
     list_filter = ("forma_pago", "fecha")
     search_fields = ("pedido__id", "pedido__cliente__nombres")
+
+
+
+# ============================================
+# CONFIGURACIÓN DE LA TIENDA (singleton)
+# ============================================
+from .models import ConfiguracionTienda
+
+
+@admin.register(ConfiguracionTienda)
+class ConfiguracionTiendaAdmin(admin.ModelAdmin):
+    list_display = ("hero_titulo", "nombre_granja", "actualizado_en")
+
+    def has_add_permission(self, request):
+        # Solo permitir un registro (singleton)
+        return not ConfiguracionTienda.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

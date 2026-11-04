@@ -12,18 +12,18 @@ export default function Layout({ children }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleLogout = () => {
+     const handleLogout = () => {
     cerrarSesion();
-    navigate("/login", { replace: true });
+    navigate("/admin-login", { replace: true });
   };
 
-  const menuItems = [
+    const menuItems = [
     { name: "Panel general", path: "/dashboard", icon: LayoutDashboard },
     { name: "Producción", path: "/produccion", icon: Egg },
     { name: "Pedidos", path: "/pedidos", icon: ShoppingCart },
-    { name: "Ventas y Clientes", path: "/clientes", icon: Users },
+    { name: "Clientes", path: "/clientes", icon: Users },
+    { name: "Ventas", path: "/ventas", icon: DollarSign },
     { name: "Inventario e Insumos", path: "/insumos", icon: Package },
-    { name: "Precios", path: "/precios", icon: DollarSign },
     { name: "Configuración", path: "/configuracion", icon: Settings },
   ];
 

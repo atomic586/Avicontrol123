@@ -1,6 +1,6 @@
 """
 Schema GraphQL de AVICONTROL.
-Define Query (lecturas) y Mutation (escrituras) para las 11 tablas.
+Define Query (lecturas) y Mutation (escrituras) para las 12 tablas.
 """
 
 import strawberry
@@ -16,6 +16,7 @@ from strawberry.types import Info
 from avicontrol.models import (
     Usuario, Cliente, Granja, Galpon, Lote,
     Produccion, Producto, Insumo, Pedido, DetallePedido, Venta,
+    ConfiguracionTienda,
 )
 from .types import (
     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
@@ -23,17 +24,13 @@ from .types import (
     DetallePedidoType, VentaType,
     ClienteBasicoType, ProductoBasicoType,
     DetallePedidoCompletoType, PedidoCompletoType, VentaCompletaType,
-)
-from .types import (
-    UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
-    ProduccionType, ProductoType, InsumoType, PedidoType,
-    DetallePedidoType, VentaType,
+    ConfiguracionTiendaType,
 )
 from .auth_jwt import generar_tokens, usuario_desde_request
 
 
 # ============================================================
-# TIPOS AUXILIARES (declarados ANTES de Query y Mutation)
+# TIPOS AUXILIARES
 # ============================================================
 @strawberry.input
 class DetalleInput:
@@ -62,7 +59,7 @@ class DashboardType:
 
 
 # ============================================================
-# QUERY (lecturas)
+# QUERY
 # ============================================================
 @strawberry.type
 class Query:
@@ -171,7 +168,7 @@ class Query:
             )
         )
 
-       # ---- PEDIDOS ----
+    # ---- PEDIDOS ----
     @strawberry.field
     def pedidos(
         self,
@@ -219,7 +216,7 @@ class Query:
             .order_by("-fecha_pedido")
         )
 
-    # ---- DASHBOARD (métricas) ----
+    # ---- DASHBOARD ----
     @strawberry.field
     def dashboard(self) -> DashboardType:
         hoy = timezone.now().date()
@@ -268,9 +265,14 @@ class Query:
             insumos_por_vencer=proximos_vencer,
         )
 
+    # ---- CONFIGURACIÓN DE LA TIENDA ----
+    @strawberry.field
+    def configuracion_tienda(self) -> ConfiguracionTiendaType:
+        return ConfiguracionTienda.get_solo()
+
 
 # ============================================================
-# MUTATIONS (escrituras)
+# MUTATIONS
 # ============================================================
 @strawberry.type
 class Mutation:
@@ -484,7 +486,7 @@ class Mutation:
     def crear_pedido(
         self, cliente_id: strawberry.ID, fecha_pedido: date,
         detalles: List[DetalleInput],
-    ) -> PedidoType:
+    ) -> PedidoCompletoType:
         if not detalles:
             raise ValueError("El pedido debe tener al menos un producto.")
 
@@ -504,12 +506,16 @@ class Mutation:
                     cantidad=d.cantidad, precio_unitario=producto.precio_unitario,
                 )
             pedido.recalcular_total()
-        return pedido
+        return (
+            Pedido.objects.select_related("cliente")
+            .prefetch_related("detalles__producto")
+            .get(pk=pedido.pk)
+        )
 
     @strawberry.mutation
     def cambiar_estado_pedido(
         self, id: strawberry.ID, estado: str,
-    ) -> Optional[PedidoType]:
+    ) -> Optional[PedidoCompletoType]:
         pedido = Pedido.objects.filter(pk=id).first()
         if not pedido:
             return None
@@ -518,14 +524,18 @@ class Mutation:
             raise ValueError(f"Estado inválido: {estado}")
         pedido.estado = estado
         pedido.save()
-        return pedido
+        return (
+            Pedido.objects.select_related("cliente")
+            .prefetch_related("detalles__producto")
+            .get(pk=pedido.pk)
+        )
 
     # ---- VENTAS ----
     @strawberry.mutation
     def registrar_venta(
         self, pedido_id: strawberry.ID, forma_pago: str = "efectivo",
         fecha: Optional[date] = None,
-    ) -> VentaType:
+    ) -> VentaCompletaType:
         with transaction.atomic():
             pedido = Pedido.objects.select_for_update().get(pk=pedido_id)
             if pedido.estado == "entregado":
@@ -552,7 +562,36 @@ class Mutation:
                 monto_total=pedido.total,
                 forma_pago=forma_pago,
             )
-        return venta
+        return (
+            Venta.objects.select_related("pedido__cliente")
+            .prefetch_related("pedido__detalles__producto")
+            .get(pk=venta.pk)
+        )
+
+    # ---- ACTUALIZAR CONFIGURACIÓN DE LA TIENDA ----
+    @strawberry.mutation
+    def actualizar_configuracion_tienda(
+        self,
+        hero_titulo: Optional[str] = None,
+        hero_subtitulo: Optional[str] = None,
+        hero_cta_texto: Optional[str] = None,
+        hero_imagen_url: Optional[str] = None,
+        nombre_granja: Optional[str] = None,
+        telefono_contacto: Optional[str] = None,
+    ) -> ConfiguracionTiendaType:
+        config = ConfiguracionTienda.get_solo()
+        for campo, valor in [
+            ("hero_titulo", hero_titulo),
+            ("hero_subtitulo", hero_subtitulo),
+            ("hero_cta_texto", hero_cta_texto),
+            ("hero_imagen_url", hero_imagen_url),
+            ("nombre_granja", nombre_granja),
+            ("telefono_contacto", telefono_contacto),
+        ]:
+            if valor is not None:
+                setattr(config, campo, valor)
+        config.save()
+        return config
 
 
 # ============================================================

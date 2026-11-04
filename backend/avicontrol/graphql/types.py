@@ -222,3 +222,21 @@ class VentaCompletaType:
     monto_total: Decimal
     forma_pago: str
     creado_en: datetime
+
+
+# ============================================================
+# 12. CONFIGURACIÓN DE LA TIENDA
+# ============================================================
+from avicontrol.models import ConfiguracionTienda
+
+
+@strawberry_django.type(ConfiguracionTienda)
+class ConfiguracionTiendaType:
+    id: strawberry.ID
+    hero_titulo: str
+    hero_subtitulo: str
+    hero_cta_texto: str
+    hero_imagen_url: Optional[str]
+    nombre_granja: str
+    telefono_contacto: str
+    actualizado_en: datetime

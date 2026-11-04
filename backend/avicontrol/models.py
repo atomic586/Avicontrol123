@@ -44,7 +44,7 @@ class Usuario(AbstractUser):
 
 
 # ============================================================
-# 2. CLIENTE (comprador de huevos)
+# 2. CLIENTE (comprador de huevos, con login opcional)
 # ============================================================
 class Cliente(models.Model):
     nombres = models.CharField(max_length=100)
@@ -57,8 +57,12 @@ class Cliente(models.Model):
         max_length=20,
         validators=[RegexValidator(r"^[0-9+\-() ]{6,20}$", "Teléfono inválido.")]
     )
-    email = models.EmailField(blank=True, null=True)
+    email = models.EmailField(blank=True, null=True, unique=True)
     direccion = models.CharField(max_length=255, blank=True)
+    # Campos nuevos para login de cliente
+    password_hash = models.CharField(max_length=255, blank=True, null=True)
+    puede_loguearse = models.BooleanField(default=False)
+    activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -70,6 +74,10 @@ class Cliente(models.Model):
     def __str__(self):
         return f"{self.apellidos}, {self.nombres} (DNI {self.dni})"
 
+    @property
+    def rol(self):
+        """Rol virtual que se pone en el JWT para distinguir de Usuario admin."""
+        return "cliente"
 
 # ============================================================
 # 3. GRANJA
@@ -357,3 +365,49 @@ class Venta(models.Model):
 
     def __str__(self):
         return f"Venta #{self.pk} - Pedido #{self.pedido_id} ({self.monto_total} Bs)"
+
+
+# ============================================================
+# 12. CONFIGURACIÓN DE LA TIENDA (Hero editable)
+# ============================================================
+class ConfiguracionTienda(models.Model):
+    """
+    Configuración global del portal público.
+    Solo debe existir un registro (singleton), editable desde /configuracion.
+    """
+    hero_titulo = models.CharField(
+        max_length=200,
+        default="Huevos frescos para tu hogar. Maplez para tu negocio."
+    )
+    hero_subtitulo = models.TextField(
+        default="Elige la calidad y la cantidad que necesitas. Envía tu pedido y coordinamos la disponibilidad y la entrega."
+    )
+    hero_cta_texto = models.CharField(
+        max_length=80,
+        default="Hacer un pedido"
+    )
+    hero_imagen_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de la imagen de fondo del hero (opcional)"
+    )
+    nombre_granja = models.CharField(
+        max_length=120,
+        default="Granja Avícola AVICONTROL"
+    )
+    telefono_contacto = models.CharField(max_length=30, blank=True, default="")
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "configuracion_tienda"
+        verbose_name = "Configuración de la Tienda"
+        verbose_name_plural = "Configuración de la Tienda"
+
+    def __str__(self):
+        return f"Configuración: {self.hero_titulo[:40]}..."
+
+    @classmethod
+    def get_solo(cls):
+        """Devuelve el registro único de configuración, creándolo si no existe."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
