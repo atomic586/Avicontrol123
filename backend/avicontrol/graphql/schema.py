@@ -26,8 +26,7 @@ from .auth_jwt import generar_tokens, usuario_desde_request
 
 
 # ============================================================
-# TIPOS AUXILIARES (deben declararse ANTES de Query y Mutation
-# para que Strawberry resuelva los tipos sin forward refs)
+# TIPOS AUXILIARES (declarados ANTES de Query y Mutation)
 # ============================================================
 @strawberry.input
 class DetalleInput:
@@ -440,7 +439,11 @@ class Mutation:
 
     @strawberry.mutation
     def actualizar_insumo(
-        self, id: strawberry.ID, stock: Optional[Decimal] = None,
+        self, id: strawberry.ID,
+        nombre: Optional[str] = None,
+        tipo: Optional[str] = None,
+        presentacion: Optional[str] = None,
+        stock: Optional[Decimal] = None,
         stock_minimo: Optional[Decimal] = None,
         precio_unitario: Optional[Decimal] = None,
         fecha_vencimiento: Optional[date] = None,
@@ -449,6 +452,7 @@ class Mutation:
         if not insumo:
             return None
         for campo, valor in [
+            ("nombre", nombre), ("tipo", tipo), ("presentacion", presentacion),
             ("stock", stock), ("stock_minimo", stock_minimo),
             ("precio_unitario", precio_unitario), ("fecha_vencimiento", fecha_vencimiento),
         ]:
@@ -462,7 +466,7 @@ class Mutation:
         eliminado, _ = Insumo.objects.filter(pk=id).delete()
         return eliminado > 0
 
-    # ---- PEDIDOS (con validación de stock) ----
+    # ---- PEDIDOS ----
     @strawberry.mutation
     def crear_pedido(
         self, cliente_id: strawberry.ID, fecha_pedido: date,
@@ -503,7 +507,7 @@ class Mutation:
         pedido.save()
         return pedido
 
-    # ---- VENTAS (descuenta stock y marca pedido como entregado) ----
+    # ---- VENTAS ----
     @strawberry.mutation
     def registrar_venta(
         self, pedido_id: strawberry.ID, forma_pago: str = "efectivo",

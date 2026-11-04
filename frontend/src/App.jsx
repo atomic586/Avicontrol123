@@ -4,6 +4,8 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Home from "./pages/Home";
+import Clientes from "./pages/Clientes";
+import Insumos from "./pages/Insumos";
 
 function RutaProtegida({ children }) {
   const { usuario, cargando } = useAuth();
@@ -31,14 +33,9 @@ function Rutas() {
     <Routes>
       <Route path="/" element={usuario ? <Navigate to="/dashboard" replace /> : <Home />} />
       <Route path="/login" element={usuario ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route
-        path="/dashboard"
-        element={
-          <RutaProtegida>
-            <Dashboard />
-          </RutaProtegida>
-        }
-      />
+      <Route path="/dashboard" element={<RutaProtegida><Dashboard /></RutaProtegida>} />
+      <Route path="/clientes" element={<RutaProtegida><Clientes /></RutaProtegida>} />
+      <Route path="/insumos" element={<RutaProtegida><Insumos /></RutaProtegida>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

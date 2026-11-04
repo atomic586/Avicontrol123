@@ -1,186 +1,258 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { gql } from '@apollo/client';
-import { useQuery, useMutation } from '@apollo/client/react';
+import { useState } from "react";
+import { useQuery, useMutation } from "@apollo/client/react";
+import { Search, Plus, Pencil, Trash2, Users } from "lucide-react";
+import {
+  CLIENTES_QUERY,
+  CREAR_CLIENTE,
+  ACTUALIZAR_CLIENTE,
+  ELIMINAR_CLIENTE,
+} from "../graphql/clientes";
+import Modal from "../components/Modal";
 
-const GET_CLIENTES = gql`
-  query GetClientes {
-    clientes {
-      id
-      nombres
-      apellidos
-      dni
-      telefono
-      email
-      direccion
-    }
-  }
-`;
-
-const CREAR_CLIENTE = gql`
-  mutation CrearCliente($nombres: String!, $apellidos: String!, $dni: String!, $telefono: String!, $email: String, $direccion: String) {
-    crearCliente(nombres: $nombres, apellidos: $apellidos, dni: $dni, telefono: $telefono, email: $email, direccion: $direccion) {
-      cliente {
-        id
-        nombres
-        apellidos
-        dni
-        telefono
-        email
-        direccion
-      }
-    }
-  }
-`;
+const FORM_VACIO = {
+  nombres: "",
+  apellidos: "",
+  dni: "",
+  telefono: "",
+  email: "",
+  direccion: "",
+};
 
 export default function Clientes() {
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('avicontrol_user') || '{}');
-  const [mostrarModal, setMostrarModal] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [form, setForm] = useState(FORM_VACIO);
+  const [error, setError] = useState("");
 
-  // Estados del formulario
-  const [nombres, setNombres] = useState('');
-  const [apellidos, setApellidos] = useState('');
-  const [dni, setDni] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [email, setEmail] = useState('');
-  const [direccion, setDireccion] = useState('');
-
-  // Query para listar clientes
-  const { data, loading, error, refetch } = useQuery(GET_CLIENTES, {
-    fetchPolicy: 'network-only',
+  const { data, loading, error: qError, refetch } = useQuery(CLIENTES_QUERY, {
+    variables: { busqueda: busqueda || null },
+    fetchPolicy: "network-only",
   });
 
-  // Mutación para crear cliente
-  const [crearCliente, { loading: creando, error: errorCrear }] = useMutation(CREAR_CLIENTE, {
-    onCompleted: () => {
-      setMostrarModal(false);
-      setNombres('');
-      setApellidos('');
-      setDni('');
-      setTelefono('');
-      setEmail('');
-      setDireccion('');
-      refetch();
-    },
-  });
+  const [crearCliente, { loading: creando }] = useMutation(CREAR_CLIENTE);
+  const [actualizarCliente, { loading: actualizando }] = useMutation(ACTUALIZAR_CLIENTE);
+  const [eliminarCliente] = useMutation(ELIMINAR_CLIENTE);
 
-  const handleLogout = () => {
-    localStorage.removeItem('avicontrol_token');
-    localStorage.removeItem('avicontrol_user');
-    navigate('/');
+  const abrirCrear = () => {
+    setEditando(null);
+    setForm(FORM_VACIO);
+    setError("");
+    setModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    crearCliente({
-      variables: {
-        nombres,
-        apellidos,
-        dni,
-        telefono,
-        email: email || null,
-        direccion: direccion || null,
-      },
+  const abrirEditar = (c) => {
+    setEditando(c);
+    setForm({
+      nombres: c.nombres,
+      apellidos: c.apellidos,
+      dni: c.dni,
+      telefono: c.telefono,
+      email: c.email || "",
+      direccion: c.direccion || "",
     });
+    setError("");
+    setModalOpen(true);
+  };
+
+  const cerrar = () => setModalOpen(false);
+
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      if (editando) {
+        await actualizarCliente({
+          variables: {
+            id: editando.id,
+            nombres: form.nombres,
+            apellidos: form.apellidos,
+            telefono: form.telefono,
+            email: form.email || null,
+            direccion: form.direccion,
+          },
+        });
+      } else {
+        await crearCliente({
+          variables: {
+            nombres: form.nombres,
+            apellidos: form.apellidos,
+            dni: form.dni,
+            telefono: form.telefono,
+            email: form.email || null,
+            direccion: form.direccion,
+          },
+        });
+      }
+      setModalOpen(false);
+      refetch();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const onEliminar = async (id) => {
+    if (!window.confirm("¿Eliminar este cliente?")) return;
+    try {
+      await eliminarCliente({ variables: { id } });
+      refetch();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-avi-light">
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-6">
-              <h1 className="text-xl font-bold text-avi-yellow">🥚 AVICONTROL</h1>
-              <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Dashboard</button>
-              <button className="text-sm text-avi-yellow font-bold">Clientes</button>
-              <button onClick={() => navigate('/lotes')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Lotes</button>
-              <button onClick={() => navigate('/insumos')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Insumos</button>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{user.username} ({user.rol})</span>
-              <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 font-medium">Cerrar Sesión</button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
+            <Users className="w-8 h-8 text-brand-500" /> Clientes
+          </h1>
+          <p className="text-gray-500 text-base mt-1 font-medium">
+            Compradores de huevos registrados en AVICONTROL
+          </p>
         </div>
-      </nav>
+        <button onClick={abrirCrear} className="btn-primary">
+          <Plus className="w-5 h-5" /> Nuevo cliente
+        </button>
+      </div>
 
-      {/* CONTENIDO */}
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Gestión de Clientes</h2>
-          <button
-            onClick={() => setMostrarModal(true)}
-            className="bg-avi-yellow hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow"
-          >
-            + Nuevo Cliente
-          </button>
+      <div className="card p-4">
+        <div className="relative">
+          <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            className="input-field pl-12"
+            placeholder="Buscar por nombre, DNI o teléfono..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
         </div>
+      </div>
 
-        {loading && <p className="text-gray-500">Cargando clientes...</p>}
-        {error && <p className="text-red-500">Error: {error.message}</p>}
+      {qError && (
+        <div className="card bg-red-50 border-red-100 text-red-700 font-bold">
+          Error: {qError.message}
+        </div>
+      )}
 
-        {data && data.clientes && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+      {loading ? (
+        <div className="card text-center py-12 text-gray-500 font-medium">
+          Cargando clientes...
+        </div>
+      ) : (
+        <div className="card p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-base">
+              <thead className="bg-brand-50 text-brand-800 text-sm uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombres</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Apellidos</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dirección</th>
+                  <th className="text-left p-4 font-bold">DNI</th>
+                  <th className="text-left p-4 font-bold">Nombres</th>
+                  <th className="text-left p-4 font-bold">Apellidos</th>
+                  <th className="text-left p-4 font-bold">Teléfono</th>
+                  <th className="text-left p-4 font-bold">Email</th>
+                  <th className="text-right p-4 font-bold">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.clientes.map((cliente) => (
-                  <tr key={cliente.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{cliente.nombres}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{cliente.apellidos}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{cliente.dni}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{cliente.telefono}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{cliente.email || '—'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{cliente.direccion || '—'}</td>
+              <tbody>
+                {(data?.clientes ?? []).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-500 font-medium">
+                      No hay clientes registrados.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  data.clientes.map((c) => (
+                    <tr key={c.id} className="border-t border-gray-100 hover:bg-brand-50/30 transition-colors">
+                      <td className="p-4 font-bold text-dark">{c.dni}</td>
+                      <td className="p-4 text-gray-700">{c.nombres}</td>
+                      <td className="p-4 text-gray-700">{c.apellidos}</td>
+                      <td className="p-4 text-gray-700">{c.telefono}</td>
+                      <td className="p-4 text-gray-500">{c.email || "—"}</td>
+                      <td className="p-4 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => abrirEditar(c)}
+                          className="text-brand-700 hover:text-brand-900 hover:bg-brand-50 p-2 rounded-lg transition-colors mr-1"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onEliminar(c.id)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
-            {data.clientes.length === 0 && (
-              <p className="text-center text-gray-500 py-8">No hay clientes registrados todavía.</p>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* MODAL PARA AGREGAR */}
-      {mostrarModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Nuevo Cliente</h3>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input type="text" placeholder="Nombres" value={nombres} onChange={(e) => setNombres(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="text" placeholder="Apellidos" value={apellidos} onChange={(e) => setApellidos(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="text" placeholder="DNI" value={dni} onChange={(e) => setDni(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="text" placeholder="Teléfono" value={telefono} onChange={(e) => setTelefono(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="email" placeholder="Email (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="text" placeholder="Dirección (opcional)" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-
-              {errorCrear && <p className="text-red-500 text-sm">Error: {errorCrear.message}</p>}
-
-              <div className="flex space-x-2 pt-2">
-                <button type="button" onClick={() => setMostrarModal(false)} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded-lg">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={creando} className="flex-1 bg-avi-yellow hover:bg-yellow-600 text-white font-bold py-2 rounded-lg disabled:opacity-50">
-                  {creando ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
+
+      <Modal
+        open={modalOpen}
+        onClose={cerrar}
+        title={editando ? "Editar cliente" : "Nuevo cliente"}
+      >
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Nombres *</label>
+              <input name="nombres" className="input-field" value={form.nombres} onChange={onChange} required />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Apellidos *</label>
+              <input name="apellidos" className="input-field" value={form.apellidos} onChange={onChange} required />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">DNI *</label>
+              <input
+                name="dni"
+                className="input-field disabled:bg-gray-100 disabled:cursor-not-allowed"
+                value={form.dni}
+                onChange={onChange}
+                required
+                disabled={!!editando}
+                placeholder="Solo dígitos (6-15)"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Teléfono *</label>
+              <input name="telefono" className="input-field" value={form.telefono} onChange={onChange} required />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Email</label>
+              <input name="email" type="email" className="input-field" value={form.email} onChange={onChange} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Dirección</label>
+              <input name="direccion" className="input-field" value={form.direccion} onChange={onChange} />
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200 font-medium">
+              {error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={cerrar} className="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" disabled={creando || actualizando} className="btn-primary">
+              {creando || actualizando ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
