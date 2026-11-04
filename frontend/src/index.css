@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-@import "tailwindcss";
-@import "tailwindcss";
-
-@theme {
-  --color-avi-yellow: #F5B700;
-  --color-avi-dark: #1F2937;
-  --color-avi-light: #F9FAFB;
-}
-
-body {
-  background-color: var(--color-avi-light);
-  color: var(--color-avi-dark);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-=======
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
@@ -46,5 +31,4 @@ body {
   .badge-warning { @apply bg-brand-100 text-brand-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
   .badge-danger { @apply bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
   .badge-info { @apply bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
->>>>>>> f3fbb1f (feat: estructura inicial AVICONTROL (backend Django+GraphQL, frontend React+Tailwind))
 }
