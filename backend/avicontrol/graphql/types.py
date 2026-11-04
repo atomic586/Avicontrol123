@@ -172,3 +172,53 @@ class VentaType:
     monto_total: Decimal
     forma_pago: str
     creado_en: datetime
+
+
+# ============================================================
+# TIPOS EXTENDIDOS PARA PEDIDOS Y VENTAS (con cliente y detalles)
+# ============================================================
+@strawberry_django.type(Cliente)
+class ClienteBasicoType:
+    id: strawberry.ID
+    nombres: str
+    apellidos: str
+    dni: str
+    telefono: str
+
+
+@strawberry_django.type(Producto)
+class ProductoBasicoType:
+    id: strawberry.ID
+    nombre: str
+    presentacion: str
+    calidad: str
+    precio_unitario: Decimal
+
+
+@strawberry_django.type(DetallePedido)
+class DetallePedidoCompletoType:
+    id: strawberry.ID
+    producto: ProductoBasicoType
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+
+@strawberry_django.type(Pedido)
+class PedidoCompletoType:
+    id: strawberry.ID
+    cliente: ClienteBasicoType
+    fecha_pedido: date
+    estado: str
+    total: Decimal
+    creado_en: datetime
+
+
+@strawberry_django.type(Venta)
+class VentaCompletaType:
+    id: strawberry.ID
+    pedido: PedidoCompletoType
+    fecha: date
+    monto_total: Decimal
+    forma_pago: str
+    creado_en: datetime

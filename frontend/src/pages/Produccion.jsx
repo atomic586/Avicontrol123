@@ -1,199 +1,172 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { gql } from '@apollo/client';
-import { useQuery, useMutation } from '@apollo/client/react';
+import { useState } from "react";
+import { useQuery, useMutation } from "@apollo/client/react";
+import { gql } from "@apollo/client";
+import { Egg, Calendar, TrendingUp } from "lucide-react";
+import { PRODUCCIONES_QUERY, REGISTRAR_PRODUCCION } from "../graphql/produccion";
 
-const GET_PRODUCCION = gql`
-  query GetProduccion {
-    producciones {
-      id
-      fecha
-      huevosPrimera
-      huevosSegunda
-      huevosTercera
-      huevosDescartados
-      total
-      lote {
-        id
-        codigo
-      }
-    }
+const LOTES_QUERY = gql`
+  query LotesParaProduccion {
+    lotes { id codigo raza estado }
   }
 `;
 
-const GET_LOTES = gql`
-  query GetLotesProd {
-    lotes {
-      id
-      codigo
-    }
-  }
-`;
-
-const CREAR_PRODUCCION = gql`
-  mutation CrearProduccion($loteId: ID!, $fecha: Date!, $huevosPrimera: Int!, $huevosSegunda: Int!, $huevosTercera: Int!, $huevosDescartados: Int!) {
-    crearProduccion(loteId: $loteId, fecha: $fecha, huevosPrimera: $huevosPrimera, huevosSegunda: $huevosSegunda, huevosTercera: $huevosTercera, huevosDescartados: $huevosDescartados) {
-      produccion {
-        id
-      }
-    }
-  }
-`;
+const FORM_VACIO = {
+  loteId: "",
+  fecha: new Date().toISOString().split("T")[0],
+  huevosPrimera: 0,
+  huevosSegunda: 0,
+  huevosTercera: 0,
+  huevosDescartados: 0,
+};
 
 export default function Produccion() {
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('avicontrol_user') || '{}');
-  const [mostrarModal, setMostrarModal] = useState(false);
+  const [form, setForm] = useState(FORM_VACIO);
+  const [error, setError] = useState("");
+  const [exito, setExito] = useState("");
 
-  // Estado del formulario
-  const [loteId, setLoteId] = useState('');
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-  const [huevosPrimera, setHuevosPrimera] = useState(0);
-  const [huevosSegunda, setHuevosSegunda] = useState(0);
-  const [huevosTercera, setHuevosTercera] = useState(0);
-  const [huevosDescartados, setHuevosDescartados] = useState(0);
+  const { data: dataLotes } = useQuery(LOTES_QUERY, { fetchPolicy: "network-only" });
+  const { data, loading, refetch } = useQuery(PRODUCCIONES_QUERY, { fetchPolicy: "network-only" });
+  const [registrar, { loading: guardando }] = useMutation(REGISTRAR_PRODUCCION);
 
-  const { data, loading, error, refetch } = useQuery(GET_PRODUCCION, { fetchPolicy: 'network-only' });
-  const { data: dataLotes } = useQuery(GET_LOTES);
-  const [crearProduccion, { loading: creando, error: errorCrear }] = useMutation(CREAR_PRODUCCION, {
-    onCompleted: () => {
-      setMostrarModal(false);
-      setLoteId('');
-      setHuevosPrimera(0);
-      setHuevosSegunda(0);
-      setHuevosTercera(0);
-      setHuevosDescartados(0);
-      refetch();
-    },
-  });
-
-  const handleLogout = () => {
-    localStorage.removeItem('avicontrol_token');
-    localStorage.removeItem('avicontrol_user');
-    navigate('/');
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: name === "loteId" || name === "fecha" ? value : parseInt(value) || 0 });
   };
 
-  const totalFormulario = Number(huevosPrimera) + Number(huevosSegunda) + Number(huevosTercera);
-
-  const handleSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    crearProduccion({
-      variables: {
-        loteId,
-        fecha,
-        huevosPrimera: Number(huevosPrimera),
-        huevosSegunda: Number(huevosSegunda),
-        huevosTercera: Number(huevosTercera),
-        huevosDescartados: Number(huevosDescartados),
-      },
-    });
+    setError("");
+    setExito("");
+    if (!form.loteId) {
+      setError("Debes seleccionar un lote.");
+      return;
+    }
+    try {
+      await registrar({
+        variables: {
+          loteId: form.loteId,
+          fecha: form.fecha,
+          huevosPrimera: form.huevosPrimera,
+          huevosSegunda: form.huevosSegunda,
+          huevosTercera: form.huevosTercera,
+          huevosDescartados: form.huevosDescartados,
+        },
+      });
+      setExito("Producción registrada correctamente.");
+      setForm({ ...FORM_VACIO, loteId: form.loteId });
+      refetch();
+    } catch (err) {
+      setError(err.message);
+    }
   };
+
+  const total = form.huevosPrimera + form.huevosSegunda + form.huevosTercera + form.huevosDescartados;
+  const producciones = data?.producciones ?? [];
+  const totalHoy = producciones.filter(p => p.fecha === new Date().toISOString().split("T")[0]).reduce((a, p) => a + p.total, 0);
 
   return (
-    <div className="min-h-screen bg-avi-light">
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-avi-yellow">🥚 AVICONTROL</h1>
-              <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Dashboard</button>
-              <button onClick={() => navigate('/clientes')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Clientes</button>
-              <button onClick={() => navigate('/lotes')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Lotes</button>
-              <button onClick={() => navigate('/insumos')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Insumos</button>
-              <button className="text-sm text-avi-yellow font-bold">Producción</button>
-              <button onClick={() => navigate('/pedidos')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Pedidos</button>
-              <button onClick={() => navigate('/ventas')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Ventas</button>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{user.username} ({user.rol})</span>
-              <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 font-medium">Cerrar Sesión</button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
+            <Egg className="w-8 h-8 text-brand-500" /> Producción
+          </h1>
+          <p className="text-gray-500 text-base mt-1 font-medium">Registra la recolección de huevos por lote y fecha</p>
         </div>
-      </nav>
+      </div>
 
-      {/* CONTENIDO */}
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Producción Diaria</h2>
-          <button
-            onClick={() => setMostrarModal(true)}
-            className="bg-avi-yellow hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow"
-          >
-            + Nuevo Registro
-          </button>
-        </div>
-
-        {loading && <p className="text-gray-500">Cargando producción...</p>}
-        {error && <p className="text-red-500">Error: {error.message}</p>}
-
-        {data && data.producciones && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lote</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">1ra</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">2da</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">3ra</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descartados</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.producciones.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.fecha}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{p.lote?.codigo}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{p.huevosPrimera}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{p.huevosSegunda}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{p.huevosTercera}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{p.huevosDescartados}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{p.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {data.producciones.length === 0 && (
-              <p className="text-center text-gray-500 py-8">No hay registros de producción todavía.</p>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* MODAL */}
-      {mostrarModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Nuevo Registro de Producción</h3>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <select value={loteId} onChange={(e) => setLoteId(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                <option value="">Seleccione un lote</option>
-                {dataLotes?.lotes?.map((l) => (
-                  <option key={l.id} value={l.id}>{l.codigo}</option>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="card lg:col-span-1">
+          <h2 className="text-xl font-black text-dark mb-4">Registrar producción</h2>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Lote *</label>
+              <select name="loteId" className="input-field" value={form.loteId} onChange={onChange} required>
+                <option value="">Selecciona un lote</option>
+                {dataLotes?.lotes?.map(l => (
+                  <option key={l.id} value={l.id}>{l.codigo} — {l.raza}</option>
                 ))}
               </select>
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="number" placeholder="Huevos de primera" value={huevosPrimera} onChange={(e) => setHuevosPrimera(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="number" placeholder="Huevos de segunda" value={huevosSegunda} onChange={(e) => setHuevosSegunda(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="number" placeholder="Huevos de tercera" value={huevosTercera} onChange={(e) => setHuevosTercera(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <input type="number" placeholder="Huevos descartados" value={huevosDescartados} onChange={(e) => setHuevosDescartados(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-              <p className="text-sm text-gray-600">Total calculado: <strong>{totalFormulario}</strong></p>
-
-              {errorCrear && <p className="text-red-500 text-sm">Error: {errorCrear.message}</p>}
-
-              <div className="flex space-x-2 pt-2">
-                <button type="button" onClick={() => setMostrarModal(false)} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded-lg">Cancelar</button>
-                <button type="submit" disabled={creando} className="flex-1 bg-avi-yellow hover:bg-yellow-600 text-white font-bold py-2 rounded-lg disabled:opacity-50">
-                  {creando ? 'Guardando...' : 'Guardar'}
-                </button>
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Fecha *</label>
+              <input type="date" name="fecha" className="input-field" value={form.fecha} onChange={onChange} required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 block">Primera</label>
+                <input type="number" name="huevosPrimera" className="input-field" value={form.huevosPrimera} onChange={onChange} min="0" />
               </div>
-            </form>
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 block">Segunda</label>
+                <input type="number" name="huevosSegunda" className="input-field" value={form.huevosSegunda} onChange={onChange} min="0" />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 block">Tercera</label>
+                <input type="number" name="huevosTercera" className="input-field" value={form.huevosTercera} onChange={onChange} min="0" />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-1 block">Descartados</label>
+                <input type="number" name="huevosDescartados" className="input-field" value={form.huevosDescartados} onChange={onChange} min="0" />
+              </div>
+            </div>
+            <div className="bg-brand-50 p-4 rounded-xl border border-brand-100">
+              <p className="text-sm font-bold text-brand-800">Total de huevos</p>
+              <p className="text-3xl font-black text-brand-700">{total.toLocaleString()}</p>
+            </div>
+            {error && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">{error}</div>}
+            {exito && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg border border-green-200">{exito}</div>}
+            <button type="submit" disabled={guardando} className="btn-primary w-full">
+              {guardando ? "Guardando..." : "Guardar producción"}
+            </button>
+          </form>
+        </div>
+
+        <div className="card lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-black text-dark">Historial de producción</h2>
+              <p className="text-sm text-gray-500 mt-1">{producciones.length} registros</p>
+            </div>
+            <div className="bg-brand-50 px-4 py-2 rounded-xl">
+              <p className="text-xs font-bold text-brand-700 uppercase">Hoy</p>
+              <p className="text-2xl font-black text-brand-700">{totalHoy.toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-brand-50 text-brand-800 uppercase text-xs tracking-wider">
+                <tr>
+                  <th className="text-left p-3 font-bold">Fecha</th>
+                  <th className="text-right p-3 font-bold">1ra</th>
+                  <th className="text-right p-3 font-bold">2da</th>
+                  <th className="text-right p-3 font-bold">3ra</th>
+                  <th className="text-right p-3 font-bold">Desc.</th>
+                  <th className="text-right p-3 font-bold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={6} className="p-6 text-center text-gray-500">Cargando...</td></tr>
+                ) : producciones.length === 0 ? (
+                  <tr><td colSpan={6} className="p-6 text-center text-gray-500">No hay registros aún.</td></tr>
+                ) : (
+                  producciones.map(p => (
+                    <tr key={p.id} className="border-t border-gray-100 hover:bg-brand-50/30">
+                      <td className="p-3 font-bold text-dark">{new Date(p.fecha).toLocaleDateString("es-BO")}</td>
+                      <td className="p-3 text-right">{p.huevosPrimera.toLocaleString()}</td>
+                      <td className="p-3 text-right">{p.huevosSegunda.toLocaleString()}</td>
+                      <td className="p-3 text-right">{p.huevosTercera.toLocaleString()}</td>
+                      <td className="p-3 text-right text-red-600">{p.huevosDescartados.toLocaleString()}</td>
+                      <td className="p-3 text-right font-bold text-brand-700">{p.total.toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

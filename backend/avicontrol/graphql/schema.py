@@ -21,6 +21,13 @@ from .types import (
     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
     ProduccionType, ProductoType, InsumoType, PedidoType,
     DetallePedidoType, VentaType,
+    ClienteBasicoType, ProductoBasicoType,
+    DetallePedidoCompletoType, PedidoCompletoType, VentaCompletaType,
+)
+from .types import (
+    UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
+    ProduccionType, ProductoType, InsumoType, PedidoType,
+    DetallePedidoType, VentaType,
 )
 from .auth_jwt import generar_tokens, usuario_desde_request
 
@@ -164,15 +171,15 @@ class Query:
             )
         )
 
-    # ---- PEDIDOS ----
+       # ---- PEDIDOS ----
     @strawberry.field
     def pedidos(
         self,
         estado: Optional[str] = None,
         fecha: Optional[date] = None,
         cliente_id: Optional[strawberry.ID] = None,
-    ) -> List[PedidoType]:
-        qs = Pedido.objects.all()
+    ) -> List[PedidoCompletoType]:
+        qs = Pedido.objects.select_related("cliente").prefetch_related("detalles__producto")
         if estado:
             qs = qs.filter(estado=estado)
         if fecha:
@@ -182,26 +189,32 @@ class Query:
         return list(qs)
 
     @strawberry.field
-    def pedido(self, id: strawberry.ID) -> Optional[PedidoType]:
-        return Pedido.objects.filter(pk=id).first()
+    def pedido(self, id: strawberry.ID) -> Optional[PedidoCompletoType]:
+        return (
+            Pedido.objects.select_related("cliente")
+            .prefetch_related("detalles__producto")
+            .filter(pk=id)
+            .first()
+        )
 
     @strawberry.field
-    def detalles_pedido(self, pedido_id: strawberry.ID) -> List[DetallePedidoType]:
-        return list(DetallePedido.objects.filter(pedido_id=pedido_id))
+    def detalles_pedido(self, pedido_id: strawberry.ID) -> List[DetallePedidoCompletoType]:
+        return list(DetallePedido.objects.select_related("producto").filter(pedido_id=pedido_id))
 
     # ---- VENTAS ----
     @strawberry.field
-    def ventas(self, cliente_id: Optional[strawberry.ID] = None) -> List[VentaType]:
-        qs = Venta.objects.select_related("pedido")
+    def ventas(self, cliente_id: Optional[strawberry.ID] = None) -> List[VentaCompletaType]:
+        qs = Venta.objects.select_related("pedido__cliente")
         if cliente_id:
             qs = qs.filter(pedido__cliente_id=cliente_id)
         return list(qs)
 
     # ---- HISTORIAL DE COMPRAS POR CLIENTE ----
     @strawberry.field
-    def historial_cliente(self, cliente_id: strawberry.ID) -> List[PedidoType]:
+    def historial_cliente(self, cliente_id: strawberry.ID) -> List[PedidoCompletoType]:
         return list(
             Pedido.objects.filter(cliente_id=cliente_id)
+            .select_related("cliente")
             .prefetch_related("detalles__producto")
             .order_by("-fecha_pedido")
         )
