@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
@@ -29,11 +30,27 @@ const client = new ApolloClient({
 })
 
 ReactDOM.createRoot(document.getElementById('root')).render(
+=======
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { ApolloProvider } from "@apollo/client/react";
+import { client } from "./apollo";
+import App from "./App";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+>>>>>>> f3fbb1f (feat: estructura inicial AVICONTROL (backend Django+GraphQL, frontend React+Tailwind))
   <React.StrictMode>
     <ApolloProvider client={client}>
       <BrowserRouter>
         <App />
       </BrowserRouter>
     </ApolloProvider>
+<<<<<<< HEAD
   </React.StrictMode>,
 )
+=======
+  </React.StrictMode>
+);
+>>>>>>> f3fbb1f (feat: estructura inicial AVICONTROL (backend Django+GraphQL, frontend React+Tailwind))
