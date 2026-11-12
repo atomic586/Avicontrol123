@@ -4,11 +4,11 @@ export const CONFIGURACION_QUERY = gql`
   query ConfiguracionTienda {
     configuracionTienda {
       id
+      granjaId
       heroTitulo
       heroSubtitulo
       heroCtaTexto
       heroImagenUrl
-      nombreGranja
       telefonoContacto
       actualizadoEn
     }
@@ -21,7 +21,6 @@ export const ACTUALIZAR_CONFIGURACION = gql`
     $heroSubtitulo: String
     $heroCtaTexto: String
     $heroImagenUrl: String
-    $nombreGranja: String
     $telefonoContacto: String
   ) {
     actualizarConfiguracionTienda(
@@ -29,7 +28,6 @@ export const ACTUALIZAR_CONFIGURACION = gql`
       heroSubtitulo: $heroSubtitulo
       heroCtaTexto: $heroCtaTexto
       heroImagenUrl: $heroImagenUrl
-      nombreGranja: $nombreGranja
       telefonoContacto: $telefonoContacto
     ) {
       id
@@ -37,7 +35,6 @@ export const ACTUALIZAR_CONFIGURACION = gql`
       heroSubtitulo
       heroCtaTexto
       heroImagenUrl
-      nombreGranja
       telefonoContacto
     }
   }

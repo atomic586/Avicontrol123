@@ -10,6 +10,7 @@ export const CLIENTES_QUERY = gql`
       telefono
       email
       direccion
+      puedeLogearse
       creadoEn
     }
   }

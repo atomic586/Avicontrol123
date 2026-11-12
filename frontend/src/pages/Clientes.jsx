@@ -56,7 +56,6 @@ export default function Clientes() {
   };
 
   const cerrar = () => setModalOpen(false);
-
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
@@ -103,6 +102,8 @@ export default function Clientes() {
     }
   };
 
+  const clientes = data?.clientes ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -111,13 +112,20 @@ export default function Clientes() {
             <Users className="w-8 h-8 text-brand-500" /> Clientes
           </h1>
           <p className="text-gray-500 text-base mt-1 font-medium">
-            Compradores de huevos registrados en AVICONTROL
+            Compradores de huevos y abono registrados en tu granja
           </p>
         </div>
         <button onClick={abrirCrear} className="btn-primary">
           <Plus className="w-5 h-5" /> Nuevo cliente
         </button>
       </div>
+
+      {qError && (
+        <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+          <p className="font-bold mb-1">Error al cargar clientes:</p>
+          <p className="text-sm font-mono bg-white p-2 rounded border border-red-200">{qError.message}</p>
+        </div>
+      )}
 
       <div className="card p-4">
         <div className="relative">
@@ -132,16 +140,8 @@ export default function Clientes() {
         </div>
       </div>
 
-      {qError && (
-        <div className="card bg-red-50 border-red-100 text-red-700 font-bold">
-          Error: {qError.message}
-        </div>
-      )}
-
       {loading ? (
-        <div className="card text-center py-12 text-gray-500 font-medium">
-          Cargando clientes...
-        </div>
+        <div className="card text-center py-12 text-gray-500">Cargando clientes...</div>
       ) : (
         <div className="card p-0 overflow-hidden">
           <div className="overflow-x-auto">
@@ -153,24 +153,30 @@ export default function Clientes() {
                   <th className="text-left p-4 font-bold">Apellidos</th>
                   <th className="text-left p-4 font-bold">Teléfono</th>
                   <th className="text-left p-4 font-bold">Email</th>
+                  <th className="text-left p-4 font-bold">Login</th>
                   <th className="text-right p-4 font-bold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {(data?.clientes ?? []).length === 0 ? (
+                {clientes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-500 font-medium">
+                    <td colSpan={7} className="p-8 text-center text-gray-500">
                       No hay clientes registrados.
                     </td>
                   </tr>
                 ) : (
-                  data.clientes.map((c) => (
+                  clientes.map((c) => (
                     <tr key={c.id} className="border-t border-gray-100 hover:bg-brand-50/30 transition-colors">
                       <td className="p-4 font-bold text-dark">{c.dni}</td>
                       <td className="p-4 text-gray-700">{c.nombres}</td>
                       <td className="p-4 text-gray-700">{c.apellidos}</td>
                       <td className="p-4 text-gray-700">{c.telefono}</td>
                       <td className="p-4 text-gray-500">{c.email || "—"}</td>
+                      <td className="p-4">
+                        <span className={c.puedeLogearse ? "badge-success" : "badge-info"}>
+                          {c.puedeLogearse ? "Activo" : "Sin cuenta"}
+                        </span>
+                      </td>
                       <td className="p-4 text-right whitespace-nowrap">
                         <button
                           onClick={() => abrirEditar(c)}
@@ -196,11 +202,7 @@ export default function Clientes() {
         </div>
       )}
 
-      <Modal
-        open={modalOpen}
-        onClose={cerrar}
-        title={editando ? "Editar cliente" : "Nuevo cliente"}
-      >
+      <Modal open={modalOpen} onClose={cerrar} title={editando ? "Editar cliente" : "Nuevo cliente"}>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -238,15 +240,13 @@ export default function Clientes() {
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200 font-medium">
+            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">
               {error}
             </div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={cerrar} className="btn-secondary">
-              Cancelar
-            </button>
+            <button type="button" onClick={cerrar} className="btn-secondary">Cancelar</button>
             <button type="submit" disabled={creando || actualizando} className="btn-primary">
               {creando || actualizando ? "Guardando..." : "Guardar"}
             </button>

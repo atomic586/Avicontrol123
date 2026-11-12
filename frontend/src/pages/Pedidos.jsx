@@ -9,8 +9,13 @@ import {
 } from "../graphql/pedidos";
 import Modal from "../components/Modal";
 
-const CLIENTES_QUERY = gql`query { clientes { id nombres apellidos dni } }`;
-const PRODUCTOS_QUERY = gql`query { productos(soloActivos: true) { id nombre presentacion calidad precioUnitario stock } }`;
+const CLIENTES_QUERY = gql`
+  query { clientes { id nombres apellidos dni } }
+`;
+
+const PRODUCTOS_QUERY = gql`
+  query { productos(soloActivos: true) { id nombre tipo presentacion calidad precioUnitario stock } }
+`;
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente", color: "bg-yellow-100 text-yellow-800" },
@@ -27,7 +32,7 @@ export default function Pedidos() {
   const [error, setError] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
 
-  const { data, loading, refetch } = useQuery(PEDIDOS_QUERY, {
+  const { data, loading, error: qError, refetch } = useQuery(PEDIDOS_QUERY, {
     variables: { estado: estadoFiltro || null },
     fetchPolicy: "network-only",
   });
@@ -55,9 +60,9 @@ export default function Pedidos() {
 
   const calcularTotal = () => {
     return detalles.reduce((acc, d) => {
-      const prod = dataProductos?.productos?.find(p => p.id === d.productoId);
+      const prod = dataProductos?.productos?.find((p) => p.id === d.productoId);
       if (!prod) return acc;
-      return acc + (parseFloat(prod.precioUnitario) * d.cantidad);
+      return acc + parseFloat(prod.precioUnitario) * d.cantidad;
     }, 0);
   };
 
@@ -65,14 +70,14 @@ export default function Pedidos() {
     e.preventDefault();
     setError("");
     if (!clienteId) { setError("Selecciona un cliente"); return; }
-    const validos = detalles.filter(d => d.productoId && d.cantidad > 0);
+    const validos = detalles.filter((d) => d.productoId && d.cantidad > 0);
     if (validos.length === 0) { setError("Agrega al menos un producto"); return; }
     try {
       await crearPedido({
         variables: {
           clienteId,
           fechaPedido,
-          detalles: validos.map(d => ({ productoId: d.productoId, cantidad: d.cantidad })),
+          detalles: validos.map((d) => ({ productoId: d.productoId, cantidad: d.cantidad })),
         },
       });
       setModalOpen(false);
@@ -93,7 +98,7 @@ export default function Pedidos() {
 
   const pedidos = data?.pedidos ?? [];
   const agrupados = ESTADOS.reduce((acc, e) => {
-    acc[e.value] = pedidos.filter(p => p.estado === e.value);
+    acc[e.value] = pedidos.filter((p) => p.estado === e.value);
     return acc;
   }, {});
 
@@ -104,36 +109,52 @@ export default function Pedidos() {
           <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
             <ShoppingCart className="w-8 h-8 text-brand-500" /> Pedidos
           </h1>
-          <p className="text-gray-500 text-base mt-1 font-medium">Organiza cada entrega desde la solicitud hasta el cobro</p>
+          <p className="text-gray-500 text-base mt-1 font-medium">
+            Organiza cada entrega desde la solicitud hasta el cobro
+          </p>
         </div>
         <button onClick={abrirModal} className="btn-primary">
           <Plus className="w-5 h-5" /> Nuevo pedido
         </button>
       </div>
 
+      {qError && (
+        <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+          <p className="font-bold mb-1">Error al cargar pedidos:</p>
+          <p className="text-sm font-mono bg-white p-2 rounded border border-red-200">{qError.message}</p>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => setEstadoFiltro("")}
-          className={`px-4 py-2 rounded-xl font-bold text-sm ${estadoFiltro === "" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200"}`}>
+        <button
+          onClick={() => setEstadoFiltro("")}
+          className={"px-4 py-2 rounded-xl font-bold text-sm " + (estadoFiltro === "" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200")}
+        >
           Todos ({pedidos.length})
         </button>
-        {ESTADOS.map(e => (
-          <button key={e.value} onClick={() => setEstadoFiltro(e.value)}
-            className={`px-4 py-2 rounded-xl font-bold text-sm ${estadoFiltro === e.value ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200"}`}>
+        {ESTADOS.map((e) => (
+          <button
+            key={e.value}
+            onClick={() => setEstadoFiltro(e.value)}
+            className={"px-4 py-2 rounded-xl font-bold text-sm " + (estadoFiltro === e.value ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200")}
+          >
             {e.label} ({agrupados[e.value]?.length || 0})
           </button>
         ))}
       </div>
 
-      {loading ? <div className="card text-center py-12 text-gray-500">Cargando pedidos...</div> : (
+      {loading ? (
+        <div className="card text-center py-12 text-gray-500">Cargando pedidos...</div>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ESTADOS.map(e => (
+          {ESTADOS.map((e) => (
             <div key={e.value} className="card p-4 bg-gray-50">
-              <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 ${e.color}`}>{e.label}</div>
+              <div className={"inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 " + e.color}>{e.label}</div>
               <div className="space-y-2">
                 {(agrupados[e.value] || []).length === 0 ? (
                   <p className="text-xs text-gray-400 italic">Sin pedidos</p>
                 ) : (
-                  agrupados[e.value].map(p => (
+                  agrupados[e.value].map((p) => (
                     <div key={p.id} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                       <div className="flex justify-between items-start">
                         <div>
@@ -144,9 +165,12 @@ export default function Pedidos() {
                       </div>
                       <p className="text-xs text-gray-400 mt-2">{new Date(p.fechaPedido).toLocaleDateString("es-BO")}</p>
                       <div className="flex gap-1 mt-2 flex-wrap">
-                        {ESTADOS.filter(s => s.value !== p.estado && s.value !== "anulado").map(s => (
-                          <button key={s.value} onClick={() => onCambiarEstado(p.id, s.value)}
-                            className="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded">
+                        {ESTADOS.filter((s) => s.value !== p.estado && s.value !== "anulado").map((s) => (
+                          <button
+                            key={s.value}
+                            onClick={() => onCambiarEstado(p.id, s.value)}
+                            className="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded"
+                          >
                             <ArrowRight className="w-3 h-3 inline" /> {s.label}
                           </button>
                         ))}
@@ -166,7 +190,7 @@ export default function Pedidos() {
             <label className="text-sm font-bold text-gray-700 mb-1 block">Cliente *</label>
             <select className="input-field" value={clienteId} onChange={(e) => setClienteId(e.target.value)} required>
               <option value="">Selecciona un cliente</option>
-              {dataClientes?.clientes?.map(c => (
+              {dataClientes?.clientes?.map((c) => (
                 <option key={c.id} value={c.id}>{c.nombres} {c.apellidos} — {c.dni}</option>
               ))}
             </select>
@@ -181,8 +205,10 @@ export default function Pedidos() {
               <div key={idx} className="flex gap-2 mb-2 items-start">
                 <select className="input-field flex-1" value={d.productoId} onChange={(e) => actualizarLinea(idx, "productoId", e.target.value)}>
                   <option value="">Producto</option>
-                  {dataProductos?.productos?.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre} (stock: {p.stock}) — Bs. {parseFloat(p.precioUnitario).toFixed(2)}</option>
+                  {dataProductos?.productos?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.tipo === "abono" ? "🌱" : "🥚"} {p.nombre} (stock: {parseFloat(p.stock).toFixed(0)}) — Bs. {parseFloat(p.precioUnitario).toFixed(2)}
+                    </option>
                   ))}
                 </select>
                 <input type="number" className="input-field w-24" value={d.cantidad} onChange={(e) => actualizarLinea(idx, "cantidad", e.target.value)} min="1" />

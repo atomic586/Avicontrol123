@@ -6,7 +6,7 @@ import { VENTAS_QUERY, REGISTRAR_VENTA } from "../graphql/ventas";
 import Modal from "../components/Modal";
 
 const PEDIDOS_PENDIENTES_QUERY = gql`
-  query PedidosPendientes {
+  query PedidosCobrables {
     pedidos {
       id
       estado
@@ -32,12 +32,14 @@ export default function Ventas() {
   const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
   const [error, setError] = useState("");
 
-  const { data, loading, refetch } = useQuery(VENTAS_QUERY, { fetchPolicy: "network-only" });
+  const { data, loading, error: qError, refetch } = useQuery(VENTAS_QUERY, { fetchPolicy: "network-only" });
   const { data: dataPedidos } = useQuery(PEDIDOS_PENDIENTES_QUERY, { fetchPolicy: "network-only" });
   const [registrarVenta, { loading: guardando }] = useMutation(REGISTRAR_VENTA);
 
-  const pedidosCobrables = (dataPedidos?.pedidos ?? []).filter(p => p.estado !== "entregado" && p.estado !== "anulado");
-  const pedidoSeleccionado = pedidosCobrables.find(p => p.id === pedidoId);
+  const pedidosCobrables = (dataPedidos?.pedidos ?? []).filter(
+    (p) => p.estado !== "entregado" && p.estado !== "anulado"
+  );
+  const pedidoSeleccionado = pedidosCobrables.find((p) => p.id === pedidoId);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -46,7 +48,9 @@ export default function Ventas() {
     try {
       await registrarVenta({ variables: { pedidoId, formaPago, fecha } });
       setModalOpen(false);
-      setPedidoId(""); setFormaPago("efectivo"); setFecha(new Date().toISOString().split("T")[0]);
+      setPedidoId("");
+      setFormaPago("efectivo");
+      setFecha(new Date().toISOString().split("T")[0]);
       refetch();
     } catch (err) {
       setError(err.message);
@@ -63,17 +67,28 @@ export default function Ventas() {
           <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
             <DollarSign className="w-8 h-8 text-brand-500" /> Ventas
           </h1>
-          <p className="text-gray-500 text-base mt-1 font-medium">Cobra pedidos entregados y consulta el historial</p>
+          <p className="text-gray-500 text-base mt-1 font-medium">
+            Cobra pedidos entregados y consulta el historial
+          </p>
         </div>
         <button onClick={() => setModalOpen(true)} className="btn-primary">
           <Plus className="w-5 h-5" /> Registrar venta
         </button>
       </div>
 
+      {qError && (
+        <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+          <p className="font-bold mb-1">Error al cargar ventas:</p>
+          <p className="text-sm font-mono bg-white p-2 rounded border border-red-200">{qError.message}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card bg-brand-50 border-brand-100">
           <p className="text-sm font-bold text-brand-700 uppercase">Ingresos totales</p>
-          <p className="text-4xl font-black text-brand-700 mt-2">Bs. {ingresosTotales.toLocaleString("es-BO", { minimumFractionDigits: 2 })}</p>
+          <p className="text-4xl font-black text-brand-700 mt-2">
+            Bs. {ingresosTotales.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+          </p>
         </div>
         <div className="card">
           <p className="text-sm font-bold text-gray-500 uppercase">Total ventas</p>
@@ -81,7 +96,9 @@ export default function Ventas() {
         </div>
       </div>
 
-      {loading ? <div className="card text-center py-12 text-gray-500">Cargando ventas...</div> : (
+      {loading ? (
+        <div className="card text-center py-12 text-gray-500">Cargando ventas...</div>
+      ) : (
         <div className="card p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-base">
@@ -96,9 +113,13 @@ export default function Ventas() {
               </thead>
               <tbody>
                 {ventas.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">No hay ventas registradas aún.</td></tr>
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-gray-500">
+                      No hay ventas registradas aún.
+                    </td>
+                  </tr>
                 ) : (
-                  ventas.map(v => (
+                  ventas.map((v) => (
                     <tr key={v.id} className="border-t border-gray-100 hover:bg-brand-50/30">
                       <td className="p-4 font-bold text-dark">#{v.pedido.id}</td>
                       <td className="p-4 text-gray-700">{v.pedido.cliente.nombres} {v.pedido.cliente.apellidos}</td>
@@ -120,10 +141,17 @@ export default function Ventas() {
             <label className="text-sm font-bold text-gray-700 mb-1 block">Pedido *</label>
             <select className="input-field" value={pedidoId} onChange={(e) => setPedidoId(e.target.value)} required>
               <option value="">Selecciona un pedido</option>
-              {pedidosCobrables.map(p => (
-                <option key={p.id} value={p.id}>#{p.id} — {p.cliente.nombres} {p.cliente.apellidos} — Bs. {parseFloat(p.total).toFixed(2)}</option>
+              {pedidosCobrables.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.id} — {p.cliente.nombres} {p.cliente.apellidos} — Bs. {parseFloat(p.total).toFixed(2)}
+                </option>
               ))}
             </select>
+            {pedidosCobrables.length === 0 && (
+              <p className="text-xs text-amber-700 mt-2 bg-amber-50 p-2 rounded border border-amber-200">
+                No hay pedidos pendientes de cobro. Crea uno nuevo en "Pedidos" primero.
+              </p>
+            )}
           </div>
           {pedidoSeleccionado && (
             <div className="bg-brand-50 p-4 rounded-xl border border-brand-100">
@@ -134,7 +162,7 @@ export default function Ventas() {
           <div>
             <label className="text-sm font-bold text-gray-700 mb-1 block">Forma de pago *</label>
             <select className="input-field" value={formaPago} onChange={(e) => setFormaPago(e.target.value)}>
-              {FORMAS_PAGO.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              {FORMAS_PAGO.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
           </div>
           <div>
@@ -144,7 +172,9 @@ export default function Ventas() {
           {error && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">{error}</div>}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={guardando} className="btn-primary">{guardando ? "Cobrando..." : "Registrar venta"}</button>
+            <button type="submit" disabled={guardando} className="btn-primary">
+              {guardando ? "Cobrando..." : "Registrar venta"}
+            </button>
           </div>
         </form>
       </Modal>

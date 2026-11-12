@@ -73,7 +73,6 @@ export default function Insumos() {
   };
 
   const cerrar = () => setModalOpen(false);
-
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
@@ -151,6 +150,13 @@ export default function Insumos() {
         </button>
       </div>
 
+      {qError && (
+        <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+          <p className="font-bold mb-1">Error al cargar insumos:</p>
+          <p className="text-sm font-mono bg-white p-2 rounded border border-red-200">{qError.message}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card">
           <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Total insumos</p>
@@ -173,35 +179,23 @@ export default function Insumos() {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setFiltro("todos")}
-          className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${
-            filtro === "todos" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-          }`}
+          className={"px-4 py-2 rounded-xl font-bold text-sm transition-colors " + (filtro === "todos" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50")}
         >
           <Filter className="w-4 h-4 inline mr-1" /> Todos ({insumos.length})
         </button>
         <button
           onClick={() => setFiltro("stock-bajo")}
-          className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${
-            filtro === "stock-bajo" ? "bg-red-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-          }`}
+          className={"px-4 py-2 rounded-xl font-bold text-sm transition-colors " + (filtro === "stock-bajo" ? "bg-red-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50")}
         >
           <AlertTriangle className="w-4 h-4 inline mr-1" /> Stock bajo ({stockBajo.length})
         </button>
         <button
           onClick={() => setFiltro("por-vencer")}
-          className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${
-            filtro === "por-vencer" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-          }`}
+          className={"px-4 py-2 rounded-xl font-bold text-sm transition-colors " + (filtro === "por-vencer" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50")}
         >
           <Clock className="w-4 h-4 inline mr-1" /> Por vencer ({proximos30.length})
         </button>
       </div>
-
-      {qError && (
-        <div className="card bg-red-50 border-red-100 text-red-700 font-bold">
-          Error: {qError.message}
-        </div>
-      )}
 
       {loading ? (
         <div className="card text-center py-12 text-gray-500 font-medium">Cargando insumos...</div>
@@ -239,10 +233,10 @@ export default function Insumos() {
                           <span className={TIPO_COLOR[i.tipo] || "badge-info"}>{i.tipo}</span>
                         </td>
                         <td className="p-4 text-gray-600">{i.presentacion || "—"}</td>
-                        <td className={`p-4 text-right font-bold ${bajo ? "text-red-600" : "text-gray-800"}`}>
-                          {i.stock}
+                        <td className={"p-4 text-right font-bold " + (bajo ? "text-red-600" : "text-gray-800")}>
+                          {parseFloat(i.stock).toFixed(2)}
                         </td>
-                        <td className="p-4 text-right text-gray-500">{i.stockMinimo}</td>
+                        <td className="p-4 text-right text-gray-500">{parseFloat(i.stockMinimo).toFixed(2)}</td>
                         <td className="p-4 text-gray-600">
                           {i.fechaVencimiento ? new Date(i.fechaVencimiento).toLocaleDateString("es-BO") : "—"}
                         </td>
@@ -272,31 +266,16 @@ export default function Insumos() {
         </div>
       )}
 
-      <Modal
-        open={modalOpen}
-        onClose={cerrar}
-        title={editando ? "Editar insumo" : "Nuevo insumo"}
-      >
+      <Modal open={modalOpen} onClose={cerrar} title={editando ? "Editar insumo" : "Nuevo insumo"}>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="text-sm font-bold text-gray-700 mb-1 block">Nombre *</label>
-              <input
-                name="nombre"
-                className="input-field"
-                value={form.nombre}
-                onChange={onChange}
-                required
-              />
+              <input name="nombre" className="input-field" value={form.nombre} onChange={onChange} required />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Tipo *</label>
-              <select
-                name="tipo"
-                className="input-field"
-                value={form.tipo}
-                onChange={onChange}
-              >
+              <select name="tipo" className="input-field" value={form.tipo} onChange={onChange}>
                 {TIPOS.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
@@ -304,59 +283,23 @@ export default function Insumos() {
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Presentación</label>
-              <input
-                name="presentacion"
-                className="input-field"
-                value={form.presentacion}
-                onChange={onChange}
-                placeholder="Ej: Saco 40 kg"
-              />
+              <input name="presentacion" className="input-field" value={form.presentacion} onChange={onChange} placeholder="Ej: Saco 40 kg" />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Stock actual *</label>
-              <input
-                type="number"
-                step="0.01"
-                name="stock"
-                className="input-field"
-                value={form.stock}
-                onChange={onChange}
-                required
-              />
+              <input type="number" step="0.01" name="stock" className="input-field" value={form.stock} onChange={onChange} required />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Stock mínimo *</label>
-              <input
-                type="number"
-                step="0.01"
-                name="stockMinimo"
-                className="input-field"
-                value={form.stockMinimo}
-                onChange={onChange}
-                required
-              />
+              <input type="number" step="0.01" name="stockMinimo" className="input-field" value={form.stockMinimo} onChange={onChange} required />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Precio unitario (Bs) *</label>
-              <input
-                type="number"
-                step="0.01"
-                name="precioUnitario"
-                className="input-field"
-                value={form.precioUnitario}
-                onChange={onChange}
-                required
-              />
+              <input type="number" step="0.01" name="precioUnitario" className="input-field" value={form.precioUnitario} onChange={onChange} required />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Fecha de vencimiento</label>
-              <input
-                type="date"
-                name="fechaVencimiento"
-                className="input-field"
-                value={form.fechaVencimiento}
-                onChange={onChange}
-              />
+              <input type="date" name="fechaVencimiento" className="input-field" value={form.fechaVencimiento} onChange={onChange} />
             </div>
           </div>
 
@@ -367,9 +310,7 @@ export default function Insumos() {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={cerrar} className="btn-secondary">
-              Cancelar
-            </button>
+            <button type="button" onClick={cerrar} className="btn-secondary">Cancelar</button>
             <button type="submit" disabled={creando || actualizando} className="btn-primary">
               {creando || actualizando ? "Guardando..." : "Guardar"}
             </button>

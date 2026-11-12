@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
-import { Egg, Calendar, TrendingUp } from "lucide-react";
+import { Egg } from "lucide-react";
 import { PRODUCCIONES_QUERY, REGISTRAR_PRODUCCION } from "../graphql/produccion";
 
 const LOTES_QUERY = gql`
@@ -25,7 +25,7 @@ export default function Produccion() {
   const [exito, setExito] = useState("");
 
   const { data: dataLotes } = useQuery(LOTES_QUERY, { fetchPolicy: "network-only" });
-  const { data, loading, refetch } = useQuery(PRODUCCIONES_QUERY, { fetchPolicy: "network-only" });
+  const { data, loading, error: qError, refetch } = useQuery(PRODUCCIONES_QUERY, { fetchPolicy: "network-only" });
   const [registrar, { loading: guardando }] = useMutation(REGISTRAR_PRODUCCION);
 
   const onChange = (e) => {
@@ -37,10 +37,7 @@ export default function Produccion() {
     e.preventDefault();
     setError("");
     setExito("");
-    if (!form.loteId) {
-      setError("Debes seleccionar un lote.");
-      return;
-    }
+    if (!form.loteId) { setError("Debes seleccionar un lote."); return; }
     try {
       await registrar({
         variables: {
@@ -62,7 +59,9 @@ export default function Produccion() {
 
   const total = form.huevosPrimera + form.huevosSegunda + form.huevosTercera + form.huevosDescartados;
   const producciones = data?.producciones ?? [];
-  const totalHoy = producciones.filter(p => p.fecha === new Date().toISOString().split("T")[0]).reduce((a, p) => a + p.total, 0);
+  const totalHoy = producciones
+    .filter((p) => p.fecha === new Date().toISOString().split("T")[0])
+    .reduce((a, p) => a + p.total, 0);
 
   return (
     <div className="space-y-6">
@@ -75,6 +74,13 @@ export default function Produccion() {
         </div>
       </div>
 
+      {qError && (
+        <div className="card bg-red-50 border-red-200 text-red-700 p-4">
+          <p className="font-bold mb-1">Error al cargar producción:</p>
+          <p className="text-sm font-mono bg-white p-2 rounded border border-red-200">{qError.message}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card lg:col-span-1">
           <h2 className="text-xl font-black text-dark mb-4">Registrar producción</h2>
@@ -83,7 +89,7 @@ export default function Produccion() {
               <label className="text-sm font-bold text-gray-700 mb-1 block">Lote *</label>
               <select name="loteId" className="input-field" value={form.loteId} onChange={onChange} required>
                 <option value="">Selecciona un lote</option>
-                {dataLotes?.lotes?.map(l => (
+                {dataLotes?.lotes?.map((l) => (
                   <option key={l.id} value={l.id}>{l.codigo} — {l.raza}</option>
                 ))}
               </select>
@@ -151,7 +157,7 @@ export default function Produccion() {
                 ) : producciones.length === 0 ? (
                   <tr><td colSpan={6} className="p-6 text-center text-gray-500">No hay registros aún.</td></tr>
                 ) : (
-                  producciones.map(p => (
+                  producciones.map((p) => (
                     <tr key={p.id} className="border-t border-gray-100 hover:bg-brand-50/30">
                       <td className="p-3 font-bold text-dark">{new Date(p.fecha).toLocaleDateString("es-BO")}</td>
                       <td className="p-3 text-right">{p.huevosPrimera.toLocaleString()}</td>

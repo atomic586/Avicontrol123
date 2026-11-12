@@ -5,28 +5,24 @@ export const CATALOGO_PUBLICO = gql`
     productos(soloActivos: true) {
       id
       nombre
+      tipo
       presentacion
       calidad
+      unidadMedida
       precioUnitario
       stock
     }
   }
 `;
 
-export const CREAR_PEDIDO_CLIENTE = gql`
-  mutation CrearPedidoCliente(
-    $clienteId: ID!
-    $fechaPedido: Date!
-    $detalles: [DetalleInput!]!
-  ) {
-    crearPedido(
-      clienteId: $clienteId
-      fechaPedido: $fechaPedido
-      detalles: $detalles
-    ) {
+export const MIS_PEDIDOS = gql`
+  query MisPedidos {
+    misPedidos {
       id
       estado
       total
+      fechaPedido
+      creadoEn
     }
   }
 `;
