@@ -19,11 +19,8 @@ const DASHBOARD_QUERY = gql`
       ingresosTotales
       productoMasVendido
       productoMasVendidoCantidad
-<<<<<<< HEAD
       abonoGeneradoMesKg
       abonoVendidoMesKg
-=======
->>>>>>> b674335 (creacion de segundo admin)
       insumosStockBajo { id nombre stock stockMinimo }
       insumosPorVencer { id nombre fechaVencimiento }
     }
@@ -38,32 +35,24 @@ const DASHBOARD_QUERY = gql`
       nombre
       codigo
     }
-<<<<<<< HEAD
-=======
-  }
-`;
-
-const ABONO_DASHBOARD_QUERY = gql`
-  query DashboardAbono {
-    dashboard {
-      abonoGeneradoMesKg
-      abonoVendidoMesKg
-    }
->>>>>>> b674335 (creacion de segundo admin)
   }
 `;
 
 function KpiCard({ title, value, icon: Icon, trend, colorClass, bgClass }) {
+  const bgOverlay = "absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-5 transition-transform group-hover:scale-110 " + bgClass;
+  const bgIcon = "p-3.5 rounded-2xl bg-opacity-10 " + bgClass;
+  const iconClass = "w-7 h-7 " + colorClass;
+
   return (
     <div className="card flex flex-col justify-between relative overflow-hidden group hover:border-brand-200 transition-colors cursor-default">
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-5 transition-transform group-hover:scale-110 ${bgClass}`}></div>
+      <div className={bgOverlay}></div>
       <div className="flex justify-between items-start mb-4 relative z-10">
         <div>
           <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</p>
           <h3 className="text-4xl font-black text-dark tracking-tight">{value}</h3>
         </div>
-        <div className={`p-3.5 rounded-2xl ${bgClass} bg-opacity-10`}>
-          <Icon className={`w-7 h-7 ${colorClass}`} strokeWidth={2.5} />
+        <div className={bgIcon}>
+          <Icon className={iconClass} strokeWidth={2.5} />
         </div>
       </div>
       {trend && (
@@ -78,10 +67,6 @@ function KpiCard({ title, value, icon: Icon, trend, colorClass, bgClass }) {
 export default function Dashboard() {
   const { usuario } = useAuth();
   const { data, loading, error } = useQuery(DASHBOARD_QUERY, { fetchPolicy: "network-only" });
-  const { data: abonoData } = useQuery(ABONO_DASHBOARD_QUERY, {
-    fetchPolicy: "network-only",
-    errorPolicy: "ignore",
-  });
 
   if (loading) {
     return <div className="flex justify-center py-20"><p className="text-lg font-bold text-gray-400 animate-pulse">Cargando panel general...</p></div>;
@@ -96,10 +81,6 @@ export default function Dashboard() {
   }
 
   const d = data.dashboard;
-<<<<<<< HEAD
-=======
-  const abonoStats = abonoData?.dashboard;
->>>>>>> b674335 (creacion de segundo admin)
   const esSuperadmin = usuario?.roles?.some((r) => r.codigo === "superadmin");
   const granja = data.granjaActual;
 
@@ -123,7 +104,7 @@ export default function Dashboard() {
           <p className="text-gray-500 text-base mt-2 font-medium">
             {esSuperadmin
               ? "Vista global de todas las granjas activas"
-              : `Granja: ${granja?.nombre || "Sin granja"} (${granja?.codigo || "—"})`}
+              : "Granja: " + (granja?.nombre || "Sin granja") + " (" + (granja?.codigo || "—") + ")"}
           </p>
         </div>
         <button className="btn-primary">
@@ -134,22 +115,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <KpiCard title="Clientes" value={d.totalClientes} icon={Users} colorClass="text-blue-600" bgClass="bg-blue-600" trend="Registrados" />
         <KpiCard title="Pedidos Pendientes" value={d.pedidosHoy} icon={ShoppingCart} colorClass="text-brand-600" bgClass="bg-brand-500" trend="Requieren atención" />
-        <KpiCard title="Ingresos Totales" value={`Bs. ${Number(d.ingresosTotales).toLocaleString("es-BO")}`} icon={DollarSign} colorClass="text-green-600" bgClass="bg-green-600" trend="Histórico" />
+        <KpiCard title="Ingresos Totales" value={"Bs. " + Number(d.ingresosTotales).toLocaleString("es-BO")} icon={DollarSign} colorClass="text-green-600" bgClass="bg-green-600" trend="Histórico" />
         <KpiCard title="Stock Crítico" value={d.insumosStockBajo.length} icon={AlertTriangle} colorClass="text-red-600" bgClass="bg-red-600" trend="Revisar inventario" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-<<<<<<< HEAD
-        <KpiCard title="Abono Generado (mes)" value={`${Number(d.abonoGeneradoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-amber-700" bgClass="bg-amber-600" trend="Recolectado" />
-        <KpiCard title="Abono Vendido (mes)" value={`${Number(d.abonoVendidoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-green-700" bgClass="bg-green-600" trend="Comercializado" />
-=======
-        {abonoStats && (
-          <>
-            <KpiCard title="Abono Generado (mes)" value={`${Number(abonoStats.abonoGeneradoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-amber-700" bgClass="bg-amber-600" trend="Recolectado" />
-            <KpiCard title="Abono Vendido (mes)" value={`${Number(abonoStats.abonoVendidoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-green-700" bgClass="bg-green-600" trend="Comercializado" />
-          </>
-        )}
->>>>>>> b674335 (creacion de segundo admin)
+        <KpiCard title="Abono Generado (mes)" value={Number(d.abonoGeneradoMesKg).toFixed(0) + " kg"} icon={Wheat} colorClass="text-amber-700" bgClass="bg-amber-600" trend="Recolectado" />
+        <KpiCard title="Abono Vendido (mes)" value={Number(d.abonoVendidoMesKg).toFixed(0) + " kg"} icon={Wheat} colorClass="text-green-700" bgClass="bg-green-600" trend="Comercializado" />
         <KpiCard title="Pedidos (mes)" value={d.pedidosMes} icon={ShoppingCart} colorClass="text-indigo-600" bgClass="bg-indigo-600" trend="Acumulados" />
       </div>
 
