@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   LayoutDashboard, Egg, ShoppingCart, Users,
-  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, Factory
+  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog
 } from "lucide-react";
 import { useState } from "react";
 
@@ -17,7 +17,7 @@ export default function Layout({ children }) {
     navigate("/admin-login", { replace: true });
   };
 
-  const roles = usuario?.roles?.map(r => r.codigo) || [];
+  const roles = usuario?.roles?.map((r) => r.codigo) || [];
   const esSuperadmin = roles.includes("superadmin");
   const esAdminGranja = roles.includes("admin_granja");
   const esVentas = roles.includes("encargado_ventas");
@@ -34,8 +34,9 @@ export default function Layout({ children }) {
     { name: "Clientes", path: "/clientes", icon: Users, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Ventas", path: "/ventas", icon: DollarSign, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Inventario", path: "/insumos", icon: Package, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Usuarios", path: "/usuarios", icon: UserCog, show: esSuperadmin || esAdminGranja },
     { name: "Configuración", path: "/configuracion", icon: Settings, show: esSuperadmin || esAdminGranja },
-  ].filter(item => item.show);
+  ].filter((item) => item.show);
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -91,7 +92,7 @@ export default function Layout({ children }) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="hidden md:flex bg-background h-20 items-center justify-between px-8 sticky top-0 z-10">
           <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">
-            {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {new Date().toLocaleDateString("es-ES", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
           <div className="flex items-center gap-4">
             <button className="p-2 text-gray-400 hover:text-brand-500 relative bg-white rounded-full shadow-sm border border-gray-100">

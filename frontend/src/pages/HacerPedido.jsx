@@ -7,10 +7,6 @@ import { CATALOGO_PUBLICO } from "../graphql/pedido_cliente";
 import { useClienteAuth } from "../auth/ClienteAuthContext";
 import LayoutPublico from "../components/LayoutPublico";
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
->>>>>>> b674335 (creacion de segundo admin)
 const GRANJAS_PUBLICAS = gql`
   query GranjasPublicas {
     granjas { id codigo nombre }
@@ -25,15 +21,6 @@ const CREAR_CLIENTE_INVITADO = gql`
     $telefono: String!
     $email: String
     $direccion: String!
-<<<<<<< HEAD
-=======
-const CREAR_PEDIDO_INVITADO = gql`
-  mutation CrearClienteYPedido(
-    $nombres: String!, $apellidos: String!, $dni: String!, $telefono: String!,
-    $email: String
->>>>>>> Stashed changes
-=======
->>>>>>> b674335 (creacion de segundo admin)
   ) {
     crearCliente(
       nombres: $nombres
@@ -70,13 +57,6 @@ export default function HacerPedido() {
   const [crearPedido, { loading: guardando }] = useMutation(CREAR_PEDIDO);
 
   const [carrito, setCarrito] = useState({});
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
-  const modo = cliente ? "logueado" : "invitado";
->>>>>>> Stashed changes
-=======
->>>>>>> b674335 (creacion de segundo admin)
   const [datosInvitado, setDatosInvitado] = useState({
     nombres: "",
     apellidos: "",
@@ -133,14 +113,7 @@ export default function HacerPedido() {
             dni: datosInvitado.dni,
             telefono: datosInvitado.telefono,
             email: datosInvitado.email || null,
-<<<<<<< HEAD
-<<<<<<< Updated upstream
             direccion: datosInvitado.direccion || "",
-=======
->>>>>>> Stashed changes
-=======
-            direccion: datosInvitado.direccion || "",
->>>>>>> b674335 (creacion de segundo admin)
           },
         });
         clienteId = d.crearCliente.id;
