@@ -1,0 +1,193 @@
+[33mcommit f868544dc813a25c96e5a8d87b87b124130dd46e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: pike-1221 <alexrodrigoreyesrodriguez21@gmail.com>
+Date:   Wed Nov 4 18:01:25 2026 -0400
+
+    feat: version 1.0
+
+[1mdiff --git a/backend/avicontrol/admin.py b/backend/avicontrol/admin.py[m
+[1mindex 83863ef..d8ea4a8 100644[m
+[1m--- a/backend/avicontrol/admin.py[m
+[1m+++ b/backend/avicontrol/admin.py[m
+[36m@@ -149,4 +149,23 @@[m [mclass DetallePedidoAdmin(admin.ModelAdmin):[m
+ class VentaAdmin(admin.ModelAdmin):[m
+     list_display = ("id", "pedido", "fecha", "monto_total", "forma_pago")[m
+     list_filter = ("forma_pago", "fecha")[m
+[31m-    search_fields = ("pedido__id", "pedido__cliente__nombres")[m
+\ No newline at end of file[m
+[32m+[m[32m    search_fields = ("pedido__id", "pedido__cliente__nombres")[m
+[32m+[m
+[32m+[m
+[32m+[m
+[32m+[m[32m# ============================================[m
+[32m+[m[32m# CONFIGURACIÓN DE LA TIENDA (singleton)[m
+[32m+[m[32m# ============================================[m
+[32m+[m[32mfrom .models import ConfiguracionTienda[m
+[32m+[m
+[32m+[m
+[32m+[m[32m@admin.register(ConfiguracionTienda)[m
+[32m+[m[32mclass ConfiguracionTiendaAdmin(admin.ModelAdmin):[m
+[32m+[m[32m    list_display = ("hero_titulo", "nombre_granja", "actualizado_en")[m
+[32m+[m
+[32m+[m[32m    def has_add_permission(self, request):[m
+[32m+[m[32m        # Solo permitir un registro (singleton)[m
+[32m+[m[32m        return not ConfiguracionTienda.objects.exists()[m
+[32m+[m
+[32m+[m[32m    def has_delete_permission(self, request, obj=None):[m
+[32m+[m[32m        return False[m
+\ No newline at end of file[m
+[1mdiff --git a/backend/avicontrol/graphql/schema.py b/backend/avicontrol/graphql/schema.py[m
+[1mindex 84b058f..c853a67 100644[m
+[1m--- a/backend/avicontrol/graphql/schema.py[m
+[1m+++ b/backend/avicontrol/graphql/schema.py[m
+[36m@@ -1,6 +1,6 @@[m
+ """[m
+ Schema GraphQL de AVICONTROL.[m
+[31m-Define Query (lecturas) y Mutation (escrituras) para las 11 tablas.[m
+[32m+[m[32mDefine Query (lecturas) y Mutation (escrituras) para las 12 tablas.[m
+ """[m
+ [m
+ import strawberry[m
+[36m@@ -16,6 +16,7 @@[m [mfrom strawberry.types import Info[m
+ from avicontrol.models import ([m
+     Usuario, Cliente, Granja, Galpon, Lote,[m
+     Produccion, Producto, Insumo, Pedido, DetallePedido, Venta,[m
+[32m+[m[32m    ConfiguracionTienda,[m
+ )[m
+ from .types import ([m
+     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,[m
+[36m@@ -23,17 +24,13 @@[m [mfrom .types import ([m
+     DetallePedidoType, VentaType,[m
+     ClienteBasicoType, ProductoBasicoType,[m
+     DetallePedidoCompletoType, PedidoCompletoType, VentaCompletaType,[m
+[31m-)[m
+[31m-from .types import ([m
+[31m-    UsuarioType, ClienteType, GranjaType, GalponType, LoteType,[m
+[31m-    ProduccionType, ProductoType, InsumoType, PedidoType,[m
+[31m-    DetallePedidoType, VentaType,[m
+[32m+[m[32m    ConfiguracionTiendaType,[m
+ )[m
+ from .auth_jwt import generar_tokens, usuario_desde_request[m
+ [m
+ [m
+ # ============================================================[m
+[31m-# TIPOS AUXILIARES (declarados ANTES de Query y Mutation)[m
+[32m+[m[32m# TIPOS AUXILIARES[m
+ # ============================================================[m
+ @strawberry.input[m
+ class DetalleInput:[m
+[36m@@ -62,7 +59,7 @@[m [mclass DashboardType:[m
+ [m
+ [m
+ # ============================================================[m
+[31m-# QUERY (lecturas)[m
+[32m+[m[32m# QUERY[m
+ # ============================================================[m
+ @strawberry.type[m
+ class Query:[m
+[36m@@ -171,7 +168,7 @@[m [mclass Query:[m
+             )[m
+         )[m
+ [m
+[31m-       # ---- PEDIDOS ----[m
+[32m+[m[32m    # ---- PEDIDOS ----[m
+     @strawberry.field[m
+     def pedidos([m
+         self,[m
+[36m@@ -219,7 +216,7 @@[m [mclass Query:[m
+             .order_by("-fecha_pedido")[m
+         )[m
+ [m
+[31m-    # ---- DASHBOARD (métricas) ----[m
+[32m+[m[32m    # ---- DASHBOARD ----[m
+     @strawberry.field[m
+     def dashboard(self) -> DashboardType:[m
+         hoy = timezone.now().date()[m
+[36m@@ -268,9 +265,14 @@[m [mclass Query:[m
+             insumos_por_vencer=proximos_vencer,[m
+         )[m
+ [m
+[32m+[m[32m    # ---- CONFIGURACIÓN DE LA TIENDA ----[m
+[32m+[m[32m    @strawberry.field[m
+[32m+[m[32m    def configuracion_tienda(self) -> ConfiguracionTiendaType:[m
+[32m+[m[32m        return ConfiguracionTienda.get_solo()[m
+[32m+[m
+ [m
+ # ============================================================[m
+[31m-# MUTATIONS (escrituras)[m
+[32m+[m[32m# MUTATIONS[m
+ # ============================================================[m
+ @strawberry.type[m
+ class Mutation:[m
+[36m@@ -484,7 +486,7 @@[m [mclass Mutation:[m
+     def crear_pedido([m
+         self, cliente_id: strawberry.ID, fecha_pedido: date,[m
+         detalles: List[DetalleInput],[m
+[31m-    ) -> PedidoType:[m
+[32m+[m[32m    ) -> PedidoCompletoType:[m
+         if not detalles:[m
+             raise ValueError("El pedido debe tener al menos un producto.")[m
+ [m
+[36m@@ -504,12 +506,16 @@[m [mclass Mutation:[m
+                     cantidad=d.cantidad, precio_unitario=producto.precio_unitario,[m
+                 )[m
+             pedido.recalcular_total()[m
+[31m-        return pedido[m
+[32m+[m[32m        return ([m
+[32m+[m[32m            Pedido.objects.select_related("cliente")[m
+[32m+[m[32m            .prefetch_related("detalles__producto")[m
+[32m+[m[32m            .get(pk=pedido.pk)[m
+[32m+[m[32m        )[m
+ [m
+     @strawberry.mutation[m
+     def cambiar_estado_pedido([m
+         self, id: strawberry.ID, estado: str,[m
+[31m-    ) -> Optional[PedidoType]:[m
+[32m+[m[32m    ) -> Optional[PedidoCompletoType]:[m
+         pedido = Pedido.objects.filter(pk=id).first()[m
+         if not pedido:[m
+             return None[m
+[36m@@ -518,14 +524,18 @@[m [mclass Mutation:[m
+             raise ValueError(f"Estado inválido: {estado}")[m
+         pedido.estado = estado[m
+         pedido.save()[m
+[31m-        return pedido[m
+[32m+[m[32m        return ([m
+[32m+[m[32m            Pedido.objects.select_related("cliente")[m
+[32m+[m[32m            .prefetch_related("detalles__producto")[m
+[32m+[m[32m            .get(pk=pedido.pk)[m
+[32m+[m[32m        )[m
+ [m
+     # ---- VENTAS ----[m
+     @strawberry.mutation[m
+     def registrar_venta([m
+         self, pedido_id: strawberry.ID, forma_pago: str = "efectivo",[m
+         fecha: Optional[date] = None,[m
+[31m-    ) -> VentaType:[m
+[32m+[m[32m    ) -> VentaCompletaType:[m
+         with transaction.atomic():[m
+             pedido = Pedido.objects.select_for_update().get(pk=pedido_id)[m
+             if pedido.estado == "entregado":[m
+[36m@@ -552,7 +562,36 @@[m [mclass Mutation:[m
+                 monto_total=pedido.total,[m
+                 forma_pago=forma_pago,[m
+             )[m
+[31m-        return venta[m
+[32m+[m[32m        return ([m
+[32m+[m[32m            Venta.objects.select_related("pedido__cliente")[m
+[32m+[m[32m            .prefetch_related("pedido__detalles__producto")[m
+[32m+[m[32m            .get(pk=venta.pk)[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    # ---- ACTUALIZAR CONFIGURACIÓN DE LA TIENDA ----[m
+[32m+[m[32m    @strawberry.mutation[m
+[32m+[m[32m    def actualizar_configuracion_tienda([m
+[32m+[m[32m        self,[m
+[32m+[m[32m        hero_titulo: Optional[str] = None,[m
+[32m+[m[32m        hero_subtitulo: Optional[str] = None,[m
+[32m+[m[32m        hero_cta_texto: Optional[str] = None,[m
+[32m+[m[32m        hero_imagen_url: Optional[str] = None,[m
+[32m+[m[32m        nombre_granja: Optional[str] = None,[m
+[32m+[m[32m        telefono_contacto: Optional[str] = None,[m
+[32m+[m[32m    ) -> ConfiguracionTiendaType:[m
+[32m+[m[32m        config = ConfiguracionTienda.get_solo()[m
+[32m+[m[32m        for c

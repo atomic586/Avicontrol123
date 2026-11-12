@@ -105,6 +105,10 @@ class GalponType:
     activo: bool
     creado_en: datetime
 
+    @strawberry.field
+    def granja(self) -> GranjaType:
+        return self.granja
+
 
 # ============================================================
 # LOTE
@@ -120,6 +124,10 @@ class LoteType:
     cantidad_aves: int
     estado: str
     creado_en: datetime
+
+    @strawberry.field
+    def galpon(self) -> GalponType:
+        return self.galpon
 
 
 # ============================================================
@@ -246,6 +254,7 @@ class PedidoType:
 @strawberry_django.type(Pedido)
 class PedidoCompletoType:
     id: strawberry.ID
+    granja_id: strawberry.ID
     estado: str
     total: Decimal
     fecha_pedido: date
@@ -254,6 +263,12 @@ class PedidoCompletoType:
     @strawberry.field
     def cliente(self) -> ClienteBasicoType:
         return self.cliente
+
+    @strawberry.field
+    def detalles_pedido(
+        self, pedido_id: Optional[strawberry.ID] = None
+    ) -> List["DetallePedidoCompletoType"]:
+        return list(self.detalles.select_related("producto").all())
 
 
 # ============================================================
@@ -298,6 +313,7 @@ class VentaType:
 @strawberry_django.type(Venta)
 class VentaCompletaType:
     id: strawberry.ID
+    granja_id: strawberry.ID
     fecha: date
     monto_total: Decimal
     forma_pago: str
@@ -337,3 +353,7 @@ class ConfiguracionTiendaType:
     hero_imagen_url: Optional[str]
     telefono_contacto: str
     actualizado_en: datetime
+
+    @strawberry.field
+    def nombre_granja(self) -> str:
+        return self.granja.nombre

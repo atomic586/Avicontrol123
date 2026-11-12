@@ -1,0 +1,27 @@
+[33mcommit f868544dc813a25c96e5a8d87b87b124130dd46e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: pike-1221 <alexrodrigoreyesrodriguez21@gmail.com>
+Date:   Wed Nov 4 18:01:25 2026 -0400
+
+    feat: version 1.0
+
+ backend/avicontrol/admin.py                        |  21 [32m++[m[31m-[m
+ backend/avicontrol/graphql/schema.py               |  73 [32m++++++[m[31m--[m
+ backend/avicontrol/graphql/types.py                |  20 [32m+[m[31m-[m
+ ..._configuraciontienda_cliente_activo_and_more.py |  51 [32m++++++[m
+ backend/avicontrol/models.py                       |  60 [32m+++++[m[31m-[m
+ frontend/src/App.jsx                               |  58 [32m++++[m[31m--[m
+ frontend/src/auth/ClienteAuthContext.jsx           |  59 [32m++++++[m
+ frontend/src/components/Layout.jsx                 |  10 [32m+[m[31m-[m
+ frontend/src/components/LayoutPublico.jsx          |  62 [32m+++++++[m
+ frontend/src/graphql/cliente_auth.js               |  61 [32m+++++++[m
+ frontend/src/graphql/configuracion.js              |  44 [32m+++++[m
+ frontend/src/graphql/pedido_cliente.js             |  32 [32m++++[m
+ frontend/src/pages/Configuracion.jsx               | 153 [32m++++++++++++++++[m
+ frontend/src/pages/HacerPedido.jsx                 | 202 [32m+++++++++++++++++++++[m
+ frontend/src/pages/Home.jsx                        |  16 [31m--[m
+ frontend/src/pages/LoginAdmin.jsx                  |  63 [32m+++++++[m
+ frontend/src/pages/LoginCliente.jsx                |  65 [32m+++++++[m
+ frontend/src/pages/MisPedidos.jsx                  |  56 [32m++++++[m
+ frontend/src/pages/PortalPublico.jsx               | 105 [32m+++++++++++[m
+ frontend/src/pages/RegistroCliente.jsx             | 115 [32m++++++++++++[m
+ 20 files changed, 1270 insertions(+), 56 deletions(-)

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+﻿import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext(null);
@@ -29,7 +29,6 @@ export function AuthProvider({ children }) {
       }
     }
     setCargando(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const iniciarSesion = (access, refresh, user) => {

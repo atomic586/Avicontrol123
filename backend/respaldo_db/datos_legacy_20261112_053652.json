@@ -1,0 +1,444 @@
+{
+  "granja": [
+    {
+      "id": 1,
+      "nombre": "Granja Central AVICONTROL",
+      "ubicacion": "Km 12 Carretera Norte",
+      "telefono": "3334444",
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.779365+00:00"
+    },
+    {
+      "id": 2,
+      "nombre": "Granja Santa Rita",
+      "ubicacion": "Valle de Toluca",
+      "telefono": "3335555",
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.783377+00:00"
+    }
+  ],
+  "usuario": [
+    {
+      "id": 1,
+      "password": "pbkdf2_sha256$1500000$92hcGaZKgLZp7Axndz2oit$N8ecXUtyayjRu4R9fK3DVFNvPhhzCiJfz0Du0X0jaSs=",
+      "last_login": "2026-10-21 23:45:27.731058+00:00",
+      "is_superuser": true,
+      "username": "Ernesto Garcia",
+      "email": "ernestogarciaisidro12@gmail.com",
+      "rol": "superadmin",
+      "nombres": "",
+      "apellidos": "",
+      "telefono": "",
+      "activo": true,
+      "is_staff": true,
+      "creado_en": "2026-10-20 21:16:14.497042+00:00"
+    },
+    {
+      "id": 12,
+      "password": "pbkdf2_sha256$1500000$FYjP0hGfLajWxVDYTD1Tzf$3fZKcxssfWCcRv0VFVN8JnQwbZqcvfIzIsydFJYKJvs=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "personalisado2e2",
+      "email": "personalisado2e2@gmail.com",
+      "rol": "cliente",
+      "nombres": "sarahi",
+      "apellidos": "vallegrande",
+      "telefono": "62093376",
+      "activo": true,
+      "is_staff": false,
+      "creado_en": "2026-11-05 20:30:37.542336+00:00"
+    }
+  ],
+  "cliente": [
+    {
+      "id": 1,
+      "nombres": "Distribuidora",
+      "apellidos": "El Huevo Feliz",
+      "dni": "1001",
+      "telefono": "77711111",
+      "email": "",
+      "direccion": "",
+      "creado_en": "2026-10-20 22:19:41.748006+00:00",
+      "usuario_id": null
+    },
+    {
+      "id": 2,
+      "nombres": "Panadería",
+      "apellidos": "Doña Rosa",
+      "dni": "1002",
+      "telefono": "77722222",
+      "email": "",
+      "direccion": "",
+      "creado_en": "2026-10-20 22:19:41.761122+00:00",
+      "usuario_id": null
+    },
+    {
+      "id": 3,
+      "nombres": "Restaurante",
+      "apellidos": "La Granja",
+      "dni": "1003",
+      "telefono": "77733333",
+      "email": "",
+      "direccion": "",
+      "creado_en": "2026-10-20 22:19:41.764389+00:00",
+      "usuario_id": null
+    },
+    {
+      "id": 4,
+      "nombres": "Mercado Central",
+      "apellidos": "Puesto 45",
+      "dni": "1004",
+      "telefono": "77744444",
+      "email": "",
+      "direccion": "",
+      "creado_en": "2026-10-20 22:19:41.766139+00:00",
+      "usuario_id": null
+    },
+    {
+      "id": 5,
+      "nombres": "Supermercado",
+      "apellidos": "El Ahorro",
+      "dni": "1005",
+      "telefono": "77755555",
+      "email": "",
+      "direccion": "",
+      "creado_en": "2026-10-20 22:19:41.767766+00:00",
+      "usuario_id": null
+    },
+    {
+      "id": 15,
+      "nombres": "sarahi",
+      "apellidos": "vallegrande",
+      "dni": "9048088",
+      "telefono": "62093376",
+      "email": "personalisado2e2@gmail.com",
+      "direccion": "su casa",
+      "creado_en": "2026-11-05 20:30:37.164588+00:00",
+      "usuario_id": 12
+    },
+    {
+      "id": 16,
+      "nombres": "sarahi",
+      "apellidos": "vallegrande",
+      "dni": "9048087",
+      "telefono": "62093376",
+      "email": "",
+      "direccion": "calle bolivar",
+      "creado_en": "2026-11-05 20:34:42.586893+00:00",
+      "usuario_id": null
+    }
+  ],
+  "galpon": [
+    {
+      "id": 1,
+      "codigo": "G-01",
+      "capacidad_aves": 5000,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.791997+00:00",
+      "granja_id": 1
+    },
+    {
+      "id": 2,
+      "codigo": "G-02",
+      "capacidad_aves": 5000,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.803915+00:00",
+      "granja_id": 1
+    },
+    {
+      "id": 3,
+      "codigo": "SR-01",
+      "capacidad_aves": 3000,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.805969+00:00",
+      "granja_id": 2
+    }
+  ],
+  "lote": [
+    {
+      "id": 1,
+      "codigo": "LOTE-2025-01",
+      "raza": "Hy-Line Brown",
+      "fecha_ingreso": "2026-07-22",
+      "cantidad_aves": 4800,
+      "estado": "activo",
+      "creado_en": "2026-10-20 22:19:41.813148+00:00",
+      "galpon_id": 1
+    },
+    {
+      "id": 2,
+      "codigo": "LOTE-2025-02",
+      "raza": "Lohmann Brown",
+      "fecha_ingreso": "2026-08-21",
+      "cantidad_aves": 4900,
+      "estado": "activo",
+      "creado_en": "2026-10-20 22:19:41.817391+00:00",
+      "galpon_id": 2
+    }
+  ],
+  "produccion": [
+    {
+      "id": 1,
+      "fecha": "2026-10-20",
+      "huevos_primera": 4200,
+      "huevos_segunda": 300,
+      "huevos_tercera": 100,
+      "huevos_descartados": 20,
+      "total": 4620,
+      "creado_en": "2026-10-20 22:19:41.827644+00:00",
+      "lote_id": 1
+    },
+    {
+      "id": 2,
+      "fecha": "2026-10-20",
+      "huevos_primera": 4500,
+      "huevos_segunda": 200,
+      "huevos_tercera": 50,
+      "huevos_descartados": 15,
+      "total": 4765,
+      "creado_en": "2026-10-20 22:19:41.831650+00:00",
+      "lote_id": 2
+    },
+    {
+      "id": 3,
+      "fecha": "2026-10-19",
+      "huevos_primera": 4200,
+      "huevos_segunda": 300,
+      "huevos_tercera": 100,
+      "huevos_descartados": 20,
+      "total": 4620,
+      "creado_en": "2026-10-20 22:19:41.838279+00:00",
+      "lote_id": 1
+    },
+    {
+      "id": 4,
+      "fecha": "2026-10-19",
+      "huevos_primera": 4500,
+      "huevos_segunda": 200,
+      "huevos_tercera": 50,
+      "huevos_descartados": 15,
+      "total": 4765,
+      "creado_en": "2026-10-20 22:19:41.846951+00:00",
+      "lote_id": 2
+    },
+    {
+      "id": 5,
+      "fecha": "2026-10-18",
+      "huevos_primera": 4200,
+      "huevos_segunda": 300,
+      "huevos_tercera": 100,
+      "huevos_descartados": 20,
+      "total": 4620,
+      "creado_en": "2026-10-20 22:19:41.850840+00:00",
+      "lote_id": 1
+    },
+    {
+      "id": 6,
+      "fecha": "2026-10-18",
+      "huevos_primera": 4500,
+      "huevos_segunda": 200,
+      "huevos_tercera": 50,
+      "huevos_descartados": 15,
+      "total": 4765,
+      "creado_en": "2026-10-20 22:19:41.853151+00:00",
+      "lote_id": 2
+    }
+  ],
+  "producto": [
+    {
+      "id": 1,
+      "nombre": "Huevo de Primera",
+      "presentacion": "maple",
+      "categoria": "primera",
+      "precio_unitario": "25.00",
+      "stock": 500,
+      "stock_minimo": 50,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.859087+00:00"
+    },
+    {
+      "id": 2,
+      "nombre": "Huevo de Primera",
+      "presentacion": "caja",
+      "categoria": "primera",
+      "precio_unitario": "280.00",
+      "stock": 50,
+      "stock_minimo": 10,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.867083+00:00"
+    },
+    {
+      "id": 3,
+      "nombre": "Huevo de Segunda",
+      "presentacion": "maple",
+      "categoria": "segunda",
+      "precio_unitario": "20.00",
+      "stock": 300,
+      "stock_minimo": 30,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.869104+00:00"
+    },
+    {
+      "id": 4,
+      "nombre": "Huevo de Tercera",
+      "presentacion": "bandeja",
+      "categoria": "tercera",
+      "precio_unitario": "8.50",
+      "stock": 200,
+      "stock_minimo": 20,
+      "activo": true,
+      "creado_en": "2026-10-20 22:19:41.870596+00:00"
+    }
+  ],
+  "insumo": [
+    {
+      "id": 1,
+      "nombre": "Alimento balanceado ponedora",
+      "tipo": "alimento",
+      "presentacion": "Bulto 40kg",
+      "stock": 100,
+      "stock_minimo": 20,
+      "precio_unitario": "120.00",
+      "fecha_vencimiento": "2026-12-19",
+      "creado_en": "2026-10-20 22:19:41.879195+00:00"
+    },
+    {
+      "id": 2,
+      "nombre": "Vacuna Newcastle",
+      "tipo": "vacuna",
+      "presentacion": "Frasco 100 dosis",
+      "stock": 5,
+      "stock_minimo": 10,
+      "precio_unitario": "85.00",
+      "fecha_vencimiento": "2026-11-04",
+      "creado_en": "2026-10-20 22:19:41.885043+00:00"
+    },
+    {
+      "id": 3,
+      "nombre": "Vitamina ADE",
+      "tipo": "vitamina",
+      "presentacion": "Frasco 500ml",
+      "stock": 8,
+      "stock_minimo": 5,
+      "precio_unitario": "45.00",
+      "fecha_vencimiento": "2027-01-18",
+      "creado_en": "2026-10-20 22:19:41.890577+00:00"
+    },
+    {
+      "id": 4,
+      "nombre": "Calcio en polvo",
+      "tipo": "alimento",
+      "presentacion": "Bolsa 10kg",
+      "stock": 30,
+      "stock_minimo": 10,
+      "precio_unitario": "60.00",
+      "fecha_vencimiento": "2027-04-18",
+      "creado_en": "2026-10-20 22:19:41.892605+00:00"
+    }
+  ],
+  "pedido": [
+    {
+      "id": 3,
+      "fecha_pedido": "2026-11-05 20:31:04.128736+00:00",
+      "estado": "entregado",
+      "total": "383.50",
+      "creado_en": "2026-11-05 20:31:04.129551+00:00",
+      "cliente_id": 15
+    },
+    {
+      "id": 4,
+      "fecha_pedido": "2026-11-05 20:34:42.659183+00:00",
+      "estado": "pendiente",
+      "total": "305.00",
+      "creado_en": "2026-11-05 20:34:42.659235+00:00",
+      "cliente_id": 16
+    }
+  ],
+  "detalle_pedido": [
+    {
+      "id": 3,
+      "cantidad": 3,
+      "precio_unitario": "25.00",
+      "subtotal": "75.00",
+      "pedido_id": 3,
+      "producto_id": 1
+    },
+    {
+      "id": 4,
+      "cantidad": 1,
+      "precio_unitario": "280.00",
+      "subtotal": "280.00",
+      "pedido_id": 3,
+      "producto_id": 2
+    },
+    {
+      "id": 5,
+      "cantidad": 1,
+      "precio_unitario": "20.00",
+      "subtotal": "20.00",
+      "pedido_id": 3,
+      "producto_id": 3
+    },
+    {
+      "id": 6,
+      "cantidad": 1,
+      "precio_unitario": "8.50",
+      "subtotal": "8.50",
+      "pedido_id": 3,
+      "producto_id": 4
+    },
+    {
+      "id": 7,
+      "cantidad": 1,
+      "precio_unitario": "25.00",
+      "subtotal": "25.00",
+      "pedido_id": 4,
+      "producto_id": 1
+    },
+    {
+      "id": 8,
+      "cantidad": 1,
+      "precio_unitario": "280.00",
+      "subtotal": "280.00",
+      "pedido_id": 4,
+      "producto_id": 2
+    }
+  ],
+  "venta": [],
+  "auditoria": [
+    {
+      "id": 41,
+      "usuario_email": "ernestogarciaisidro12@gmail.com",
+      "accion": "ACTUALIZAR_USUARIO",
+      "entidad": "Usuario",
+      "entidad_id": "1",
+      "detalle": "Promocion inicial a Administrador principal (superadmin). Rol anterior: admin.",
+      "ip": null,
+      "creado_en": "2026-11-11 22:02:21.744936+00:00",
+      "usuario_id": 1
+    },
+    {
+      "id": 50,
+      "usuario_email": "ernestogarciaisidro12@gmail.com",
+      "accion": "GENERAR_TOKEN",
+      "entidad": "Usuario",
+      "entidad_id": "1",
+      "detalle": "Token de restablecimiento generado para acceso del superadmin.",
+      "ip": null,
+      "creado_en": "2026-11-11 22:11:33.336465+00:00",
+      "usuario_id": 1
+    }
+  ],
+  "configuracion_tienda": [
+    {
+      "id": 1,
+      "hero_titulo": "Huevos frescos para tu hogar. Maplez para tu negocio.",
+      "hero_subtitulo": "Elige la calidad y la cantidad que necesitas. Envía tu pedido y coordinamos la disponibilidad y la entrega.",
+      "hero_cta_texto": "Hacer un pedido",
+      "hero_imagen_url": null,
+      "nombre_granja": "Granja Avícola AVICONTROL",
+      "telefono_contacto": "",
+      "actualizado_en": "2026-11-05 03:47:48.800683+00:00"
+    }
+  ]
+}

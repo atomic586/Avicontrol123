@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+﻿import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 
 const ClienteAuthContext = createContext(null);
@@ -28,7 +28,6 @@ export function ClienteAuthProvider({ children }) {
       }
     }
     setCargando(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const iniciarSesion = (access, refresh, user) => {

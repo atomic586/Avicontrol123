@@ -568,5 +568,14 @@ class ConfiguracionTienda(models.Model):
         verbose_name = "Configuración de la Tienda"
         verbose_name_plural = "Configuración de la Tienda"
 
+    @classmethod
+    def get_solo(cls, granja=None):
+        if granja is None:
+            granja = Granja.objects.order_by("id").first()
+        if granja is None:
+            raise ValueError("No hay granjas registradas.")
+        config, _ = cls.objects.get_or_create(granja=granja)
+        return config
+
     def __str__(self):
         return f"Configuración: {self.granja.nombre}"

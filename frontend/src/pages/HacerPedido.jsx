@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { ShoppingCart, ArrowLeft, CheckCircle } from "lucide-react";
@@ -7,6 +7,7 @@ import { CATALOGO_PUBLICO } from "../graphql/pedido_cliente";
 import { useClienteAuth } from "../auth/ClienteAuthContext";
 import LayoutPublico from "../components/LayoutPublico";
 
+<<<<<<< Updated upstream
 const GRANJAS_PUBLICAS = gql`
   query GranjasPublicas {
     granjas { id codigo nombre }
@@ -21,6 +22,12 @@ const CREAR_CLIENTE_INVITADO = gql`
     $telefono: String!
     $email: String
     $direccion: String!
+=======
+const CREAR_PEDIDO_INVITADO = gql`
+  mutation CrearClienteYPedido(
+    $nombres: String!, $apellidos: String!, $dni: String!, $telefono: String!,
+    $email: String
+>>>>>>> Stashed changes
   ) {
     crearCliente(
       nombres: $nombres
@@ -48,7 +55,6 @@ const CREAR_PEDIDO = gql`
 `;
 
 export default function HacerPedido() {
-  const navigate = useNavigate();
   const { cliente } = useClienteAuth();
 
   const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, { fetchPolicy: "cache-first" });
@@ -58,6 +64,10 @@ export default function HacerPedido() {
   const [crearPedido, { loading: guardando }] = useMutation(CREAR_PEDIDO);
 
   const [carrito, setCarrito] = useState({});
+<<<<<<< Updated upstream
+=======
+  const modo = cliente ? "logueado" : "invitado";
+>>>>>>> Stashed changes
   const [datosInvitado, setDatosInvitado] = useState({
     nombres: "",
     apellidos: "",
@@ -114,7 +124,10 @@ export default function HacerPedido() {
             dni: datosInvitado.dni,
             telefono: datosInvitado.telefono,
             email: datosInvitado.email || null,
+<<<<<<< Updated upstream
             direccion: datosInvitado.direccion || "",
+=======
+>>>>>>> Stashed changes
           },
         });
         clienteId = d.crearCliente.id;

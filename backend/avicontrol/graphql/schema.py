@@ -11,17 +11,21 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
+from django.contrib.auth.hashers import check_password, make_password
 from strawberry.types import Info
+
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 from avicontrol.models import (
     Usuario, Cliente, Granja, Galpon, Lote,
     Produccion, Producto, Insumo, Pedido, DetallePedido, Venta,
-    ConfiguracionTienda,
+    GeneracionAbono, ConfiguracionTienda,
 )
 from .types import (
     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
     ProduccionType, ProductoType, InsumoType, PedidoType,
-    DetallePedidoType, VentaType,
+    DetallePedidoType, VentaType, GeneracionAbonoType,
     ClienteBasicoType, ProductoBasicoType,
     DetallePedidoCompletoType, PedidoCompletoType, VentaCompletaType,
     ConfiguracionTiendaType,
@@ -43,6 +47,63 @@ class LoginPayload:
     access: str
     refresh: str
     usuario: UsuarioType
+
+
+@strawberry.type
+class LoginClientePayload:
+    access: str
+    refresh: str
+    cliente: ClienteType
+
+
+def _granja_por_defecto(info: Optional[Info] = None) -> Granja:
+    request = getattr(info.context, "request", None) if info else None
+    usuario = usuario_desde_request(request) if request else None
+    if usuario and usuario.granja_id:
+        return usuario.granja
+    granja = Granja.objects.order_by("id").first()
+    if granja is None:
+        raise ValueError("No hay ninguna granja configurada.")
+    return granja
+
+
+def _granja_de_galpon(galpon_id) -> tuple:
+    galpon = Galpon.objects.select_related("granja").filter(pk=galpon_id).first()
+    if not galpon:
+        raise ValueError("Galpón no encontrado.")
+    return galpon.granja, galpon
+
+
+def _tokens_cliente(cliente) -> dict:
+    refresh = RefreshToken()
+    refresh["cliente_id"] = cliente.id
+    refresh["tipo"] = "cliente"
+    return {"access": str(refresh.access_token), "refresh": str(refresh)}
+
+
+def _token_de_request(request) -> str:
+    if request is None:
+        return ""
+    propio = request.META.get("HTTP_X_CLIENTE_TOKEN", "")
+    if propio.startswith("Bearer "):
+        return propio.replace("Bearer ", "", 1).strip()
+    general = request.META.get("HTTP_AUTHORIZATION", "")
+    if general.startswith("Bearer "):
+        return general.replace("Bearer ", "", 1).strip()
+    return ""
+
+
+def _cliente_desde_request(request) -> Optional[Cliente]:
+    try:
+        access = AccessToken(_token_de_request(request))
+    except TokenError:
+        return None
+    cliente_id = access.get("cliente_id")
+    if not cliente_id:
+        return None
+    return Cliente.objects.filter(
+        pk=cliente_id, activo=True, puede_loguearse=True
+    ).first()
 
 
 @strawberry.type
@@ -94,6 +155,10 @@ class Query:
     @strawberry.field
     def granjas(self) -> List[GranjaType]:
         return list(Granja.objects.all())
+
+    @strawberry.field
+    def granja_actual(self, info: Info) -> GranjaType:
+        return _granja_por_defecto(info)
 
     # ---- GALPONES ----
     @strawberry.field
@@ -168,6 +233,14 @@ class Query:
             )
         )
 
+    # ---- GENERACIONES DE ABONO ----
+    @strawberry.field
+    def generaciones_abono(self, estado: Optional[str] = None) -> List[GeneracionAbonoType]:
+        qs = GeneracionAbono.objects.all()
+        if estado:
+            qs = qs.filter(estado=estado)
+        return list(qs)
+
     # ---- PEDIDOS ----
     @strawberry.field
     def pedidos(
@@ -214,6 +287,18 @@ class Query:
             .select_related("cliente")
             .prefetch_related("detalles__producto")
             .order_by("-fecha_pedido")
+        )
+
+    @strawberry.field
+    def mis_pedidos(self, info: Info) -> List[PedidoCompletoType]:
+        cliente = _cliente_desde_request(info.context.request)
+        if not cliente:
+            raise ValueError("Sesión de cliente no válida o expirada.")
+        return list(
+            Pedido.objects.filter(cliente=cliente)
+            .select_related("cliente")
+            .prefetch_related("detalles__producto")
+            .order_by("-fecha_pedido", "-id")
         )
 
     # ---- DASHBOARD ----
@@ -313,14 +398,56 @@ class Mutation:
     def me(self, info: Info) -> Optional[UsuarioType]:
         return usuario_desde_request(info.context.request)
 
+    # ---- AUTENTICACIÓN DE CLIENTES ----
+    @strawberry.mutation
+    def login_cliente(self, email: str, password: str) -> LoginClientePayload:
+        cliente = Cliente.objects.filter(
+            email__iexact=email, activo=True, puede_loguearse=True
+        ).first()
+        if not cliente or not cliente.password_hash:
+            raise ValueError("Correo o contraseña inválidos.")
+        if not check_password(password, cliente.password_hash):
+            raise ValueError("Correo o contraseña inválidos.")
+        tokens = _tokens_cliente(cliente)
+        return LoginClientePayload(
+            access=tokens["access"], refresh=tokens["refresh"], cliente=cliente
+        )
+
+    @strawberry.mutation
+    def registro_cliente(
+        self, granja_id: strawberry.ID, nombres: str, apellidos: str,
+        dni: str, telefono: str, email: str, password: str,
+    ) -> LoginClientePayload:
+        if len(password) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres.")
+        if not Granja.objects.filter(pk=granja_id).exists():
+            raise ValueError("Granja no encontrada.")
+        if Cliente.objects.filter(email__iexact=email).exists():
+            raise ValueError("Ya existe una cuenta con ese correo.")
+        if Cliente.objects.filter(granja_id=granja_id, dni=dni).exists():
+            raise ValueError("Ya existe un cliente con ese DNI en esta granja.")
+        cliente = Cliente.objects.create(
+            granja_id=granja_id, nombres=nombres, apellidos=apellidos,
+            dni=dni, telefono=telefono, email=email, direccion="",
+            password_hash=make_password(password), puede_loguearse=True,
+            activo=True,
+        )
+        tokens = _tokens_cliente(cliente)
+        return LoginClientePayload(
+            access=tokens["access"], refresh=tokens["refresh"], cliente=cliente
+        )
+
     # ---- CLIENTES ----
     @strawberry.mutation
     def crear_cliente(
-        self, nombres: str, apellidos: str, dni: str, telefono: str,
+        self, info: Info, nombres: str, apellidos: str, dni: str, telefono: str,
         email: Optional[str] = None, direccion: str = "",
     ) -> ClienteType:
+        granja = _granja_por_defecto(info)
+        if Cliente.objects.filter(granja=granja, dni=dni).exists():
+            raise ValueError("Ya existe un cliente con ese DNI en esta granja.")
         cliente = Cliente.objects.create(
-            nombres=nombres, apellidos=apellidos, dni=dni,
+            granja=granja, nombres=nombres, apellidos=apellidos, dni=dni,
             telefono=telefono, email=email, direccion=direccion,
         )
         return cliente
@@ -351,9 +478,37 @@ class Mutation:
     # ---- GRANJAS ----
     @strawberry.mutation
     def crear_granja(
-        self, nombre: str, ubicacion: str, telefono: str = "",
+        self, nombre: str, codigo: str, ubicacion: str,
+        telefono: str = "", email: str = "",
     ) -> GranjaType:
-        return Granja.objects.create(nombre=nombre, ubicacion=ubicacion, telefono=telefono)
+        if Granja.objects.filter(nombre=nombre).exists():
+            raise ValueError("Ya existe una granja con ese nombre.")
+        if Granja.objects.filter(codigo=codigo).exists():
+            raise ValueError("Ya existe una granja con ese código.")
+        return Granja.objects.create(
+            nombre=nombre, codigo=codigo, ubicacion=ubicacion,
+            telefono=telefono, email=email,
+        )
+
+    @strawberry.mutation
+    def actualizar_granja(
+        self, id: strawberry.ID, nombre: Optional[str] = None,
+        ubicacion: Optional[str] = None, telefono: Optional[str] = None,
+        email: Optional[str] = None, activo: Optional[bool] = None,
+    ) -> Optional[GranjaType]:
+        granja = Granja.objects.filter(pk=id).first()
+        if not granja:
+            return None
+        if nombre and Granja.objects.filter(nombre=nombre).exclude(pk=granja.pk).exists():
+            raise ValueError("Ya existe una granja con ese nombre.")
+        for campo, valor in [
+            ("nombre", nombre), ("ubicacion", ubicacion),
+            ("telefono", telefono), ("email", email), ("activo", activo),
+        ]:
+            if valor is not None:
+                setattr(granja, campo, valor)
+        granja.save()
+        return granja
 
     # ---- GALPONES ----
     @strawberry.mutation
@@ -370,8 +525,9 @@ class Mutation:
         self, galpon_id: strawberry.ID, codigo: str, raza: str,
         fecha_ingreso: date, cantidad_aves: int, estado: str = "activo",
     ) -> LoteType:
+        granja, galpon = _granja_de_galpon(galpon_id)
         return Lote.objects.create(
-            galpon_id=galpon_id, codigo=codigo, raza=raza,
+            granja=granja, galpon=galpon, codigo=codigo, raza=raza,
             fecha_ingreso=fecha_ingreso, cantidad_aves=cantidad_aves, estado=estado,
         )
 
@@ -397,9 +553,13 @@ class Mutation:
         huevos_primera: int = 0, huevos_segunda: int = 0,
         huevos_tercera: int = 0, huevos_descartados: int = 0,
     ) -> ProduccionType:
+        lote = Lote.objects.filter(pk=lote_id).first()
+        if not lote:
+            raise ValueError("Lote no encontrado.")
         produccion, _ = Produccion.objects.update_or_create(
-            lote_id=lote_id, fecha=fecha,
+            lote=lote, fecha=fecha,
             defaults={
+                "granja": lote.granja,
                 "huevos_primera": huevos_primera,
                 "huevos_segunda": huevos_segunda,
                 "huevos_tercera": huevos_tercera,
@@ -412,11 +572,15 @@ class Mutation:
     # ---- PRODUCTOS ----
     @strawberry.mutation
     def crear_producto(
-        self, nombre: str, presentacion: str, calidad: str,
+        self, info: Info, nombre: str, presentacion: str, calidad: str,
         precio_unitario: Decimal, stock: int = 0, stock_minimo: int = 0,
+        tipo: str = "huevo", unidad_medida: str = "unidad",
     ) -> ProductoType:
+        granja = _granja_por_defecto(info)
         return Producto.objects.create(
-            nombre=nombre, presentacion=presentacion, calidad=calidad,
+            granja=granja, nombre=nombre, tipo=tipo,
+            presentacion=presentacion, calidad=calidad,
+            unidad_medida=unidad_medida,
             precio_unitario=precio_unitario, stock=stock, stock_minimo=stock_minimo,
         )
 
@@ -441,13 +605,14 @@ class Mutation:
     # ---- INSUMOS ----
     @strawberry.mutation
     def crear_insumo(
-        self, nombre: str, tipo: str, presentacion: str = "",
+        self, info: Info, nombre: str, tipo: str, presentacion: str = "",
         stock: Decimal = Decimal("0"), stock_minimo: Decimal = Decimal("0"),
         precio_unitario: Decimal = Decimal("0"),
         fecha_vencimiento: Optional[date] = None,
     ) -> InsumoType:
+        granja = _granja_por_defecto(info)
         return Insumo.objects.create(
-            nombre=nombre, tipo=tipo, presentacion=presentacion,
+            granja=granja, nombre=nombre, tipo=tipo, presentacion=presentacion,
             stock=stock, stock_minimo=stock_minimo,
             precio_unitario=precio_unitario, fecha_vencimiento=fecha_vencimiento,
         )
@@ -490,9 +655,14 @@ class Mutation:
         if not detalles:
             raise ValueError("El pedido debe tener al menos un producto.")
 
+        cliente = Cliente.objects.filter(pk=cliente_id).first()
+        if not cliente:
+            raise ValueError("Cliente no encontrado.")
+
         with transaction.atomic():
             pedido = Pedido.objects.create(
-                cliente_id=cliente_id, fecha_pedido=fecha_pedido, estado="pendiente",
+                granja=cliente.granja, cliente=cliente,
+                fecha_pedido=fecha_pedido, estado="pendiente",
             )
             for d in detalles:
                 producto = Producto.objects.select_for_update().get(pk=d.producto_id)
@@ -557,6 +727,7 @@ class Mutation:
             pedido.save(update_fields=["estado"])
 
             venta = Venta.objects.create(
+                granja=pedido.granja,
                 pedido=pedido,
                 fecha=fecha or timezone.now().date(),
                 monto_total=pedido.total,
@@ -566,6 +737,25 @@ class Mutation:
             Venta.objects.select_related("pedido__cliente")
             .prefetch_related("pedido__detalles__producto")
             .get(pk=venta.pk)
+        )
+
+    # ---- ABONO ----
+    @strawberry.mutation
+    def registrar_generacion_abono(
+        self, galpon_id: strawberry.ID, fecha: date, cantidad_kg: Decimal,
+        estado: str = "fresco", lote_id: Optional[strawberry.ID] = None,
+        responsable: str = "", observaciones: str = "",
+    ) -> GeneracionAbonoType:
+        granja, galpon = _granja_de_galpon(galpon_id)
+        lote = None
+        if lote_id:
+            lote = Lote.objects.filter(pk=lote_id, granja=granja).first()
+            if not lote:
+                raise ValueError("Lote no encontrado en esta granja.")
+        return GeneracionAbono.objects.create(
+            granja=granja, galpon=galpon, lote=lote, fecha=fecha,
+            cantidad_kg=cantidad_kg, estado=estado,
+            responsable=responsable, observaciones=observaciones,
         )
 
     # ---- ACTUALIZAR CONFIGURACIÓN DE LA TIENDA ----
@@ -580,12 +770,18 @@ class Mutation:
         telefono_contacto: Optional[str] = None,
     ) -> ConfiguracionTiendaType:
         config = ConfiguracionTienda.get_solo()
+        if nombre_granja is not None and nombre_granja != config.granja.nombre:
+            if Granja.objects.filter(nombre=nombre_granja).exclude(
+                pk=config.granja_id
+            ).exists():
+                raise ValueError("Ya existe una granja con ese nombre.")
+            config.granja.nombre = nombre_granja
+            config.granja.save(update_fields=["nombre"])
         for campo, valor in [
             ("hero_titulo", hero_titulo),
             ("hero_subtitulo", hero_subtitulo),
             ("hero_cta_texto", hero_cta_texto),
             ("hero_imagen_url", hero_imagen_url),
-            ("nombre_granja", nombre_granja),
             ("telefono_contacto", telefono_contacto),
         ]:
             if valor is not None:

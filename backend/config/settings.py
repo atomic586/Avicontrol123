@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Cargar variables del archivo .env
 load_dotenv()
@@ -150,16 +151,23 @@ ADMIN_INDEX_TITLE = "Panel de Gestión Avícola"
 # ============================================
 # CORS (para el frontend en :5173)
 # ============================================
-CORS_ALLOWED_ORIGINS = [
-    os.getenv("FRONTEND_URL", "http://localhost:5173"),
-    "http://127.0.0.1:5173",
-]
+_origenes = {
+    origen.strip()
+    for origen in os.getenv(
+        "FRONTEND_URLS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origen.strip()
+}
+_frontend_unico = os.getenv("FRONTEND_URL")
+if _frontend_unico:
+    _origenes.add(_frontend_unico.strip())
+
+CORS_ALLOWED_ORIGINS = sorted(_origenes)
+CORS_ALLOW_HEADERS = [*default_headers, "x-cliente-token"]
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 
 # ============================================
