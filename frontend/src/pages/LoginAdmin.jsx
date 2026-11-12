@@ -34,13 +34,13 @@ export default function LoginAdmin() {
             <Shield className="w-7 h-7 text-brand-600" />
           </div>
           <h1 className="text-2xl font-black text-dark">Acceso administrativo</h1>
-          <p className="text-sm text-gray-500 mt-1">Solo personal autorizado de AVICONTROL</p>
+          <p className="text-sm text-gray-500 mt-1">Solo personal autorizado</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Usuario</label>
-            <input type="text" className="input-field" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus placeholder="admin" />
+            <input type="text" className="input-field" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus placeholder="superadmin" />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>

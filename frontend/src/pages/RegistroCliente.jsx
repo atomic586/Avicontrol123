@@ -1,43 +1,43 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useMutation } from "@apollo/client/react";
+import { useMutation, useQuery } from "@apollo/client/react";
+import { gql } from "@apollo/client";
 import { ArrowLeft } from "lucide-react";
 import { REGISTRO_CLIENTE } from "../graphql/cliente_auth";
 import { useClienteAuth } from "../auth/ClienteAuthContext";
 
-const FORM_VACIO = {
-  nombres: "",
-  apellidos: "",
-  dni: "",
-  telefono: "",
-  email: "",
-  password: "",
-  confirmar: "",
-};
+const GRANJAS_PUBLICAS = gql`
+  query GranjasPublicas {
+    granjas {
+      id
+      codigo
+      nombre
+    }
+  }
+`;
 
 export default function RegistroCliente() {
   const navigate = useNavigate();
   const { iniciarSesion } = useClienteAuth();
-  const [form, setForm] = useState(FORM_VACIO);
+  const [granjaId, setGranjaId] = useState("");
+  const [form, setForm] = useState({ nombres: "", apellidos: "", dni: "", telefono: "", email: "", password: "", confirmar: "" });
   const [error, setError] = useState("");
+
   const [registroMutation, { loading }] = useMutation(REGISTRO_CLIENTE);
+  const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, { fetchPolicy: "cache-first" });
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (form.password !== form.confirmar) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-    if (form.password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
-      return;
-    }
+    if (!granjaId) { setError("Selecciona una granja."); return; }
+    if (form.password !== form.confirmar) { setError("Las contraseñas no coinciden."); return; }
+    if (form.password.length < 8) { setError("La contraseña debe tener al menos 8 caracteres."); return; }
     try {
       const { data } = await registroMutation({
         variables: {
+          granjaId,
           nombres: form.nombres,
           apellidos: form.apellidos,
           dni: form.dni,
@@ -60,10 +60,19 @@ export default function RegistroCliente() {
         <div className="text-center mb-6">
           <div className="text-5xl mb-2">🥚</div>
           <h1 className="text-2xl font-black text-brand-700">Crear cuenta</h1>
-          <p className="text-sm text-gray-500 mt-1">Regístrate para hacer pedidos y ver tu historial</p>
+          <p className="text-sm text-gray-500 mt-1">Regístrate para hacer pedidos</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Granja *</label>
+            <select className="input-field" value={granjaId} onChange={(e) => setGranjaId(e.target.value)} required>
+              <option value="">Selecciona una granja</option>
+              {dataGranjas?.granjas?.map(g => (
+                <option key={g.id} value={g.id}>{g.codigo} — {g.nombre}</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Nombres *</label>

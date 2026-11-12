@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@apollo/client/react";
-import { Egg, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { LOGIN_CLIENTE } from "../graphql/cliente_auth";
 import { useClienteAuth } from "../auth/ClienteAuthContext";
 

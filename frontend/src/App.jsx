@@ -15,8 +15,9 @@ import Produccion from "./pages/Produccion";
 import Pedidos from "./pages/Pedidos";
 import Ventas from "./pages/Ventas";
 import Configuracion from "./pages/Configuracion";
+import Granjas from "./pages/Granjas";
+import Abono from "./pages/Abono";
 
-// Ruta protegida para ADMIN
 function RutaAdmin({ children }) {
   const { usuario, cargando } = useAuth();
   const location = useLocation();
@@ -25,7 +26,6 @@ function RutaAdmin({ children }) {
   return <Layout>{children}</Layout>;
 }
 
-// Ruta protegida para CLIENTE
 function RutaCliente({ children }) {
   const { cliente, cargando } = useClienteAuth();
   if (cargando) return <div className="min-h-screen flex items-center justify-center bg-hueso"><p className="text-gray-500 font-medium">Cargando...</p></div>;
@@ -39,7 +39,7 @@ function Rutas() {
 
   return (
     <Routes>
-      {/* PORTAL PÚBLICO */}
+      {/* PORTAL PUBLICO */}
       <Route path="/" element={<PortalPublico />} />
       <Route path="/hacer-pedido" element={<HacerPedido />} />
 
@@ -48,11 +48,13 @@ function Rutas() {
       <Route path="/registro" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <RegistroCliente />} />
       <Route path="/mis-pedidos" element={<RutaCliente><MisPedidos /></RutaCliente>} />
 
-      {/* LOGIN ADMIN (URL separada) */}
+      {/* LOGIN ADMIN */}
       <Route path="/admin-login" element={usuario ? <Navigate to="/dashboard" replace /> : <LoginAdmin />} />
 
       {/* PANEL ADMIN */}
       <Route path="/dashboard" element={<RutaAdmin><Dashboard /></RutaAdmin>} />
+      <Route path="/granjas" element={<RutaAdmin><Granjas /></RutaAdmin>} />
+      <Route path="/abono" element={<RutaAdmin><Abono /></RutaAdmin>} />
       <Route path="/clientes" element={<RutaAdmin><Clientes /></RutaAdmin>} />
       <Route path="/insumos" element={<RutaAdmin><Insumos /></RutaAdmin>} />
       <Route path="/produccion" element={<RutaAdmin><Produccion /></RutaAdmin>} />

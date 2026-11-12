@@ -9,9 +9,10 @@ export const LOGIN_MUTATION = gql`
         id
         username
         email
-        rol
         nombres
         apellidos
+        granjaId
+        roles { codigo nombre }
       }
     }
   }
@@ -23,9 +24,10 @@ export const ME_MUTATION = gql`
       id
       username
       email
-      rol
       nombres
       apellidos
+      granjaId
+      roles { codigo nombre }
     }
   }
 `;

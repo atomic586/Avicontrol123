@@ -1,8 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { 
-  LayoutDashboard, Egg, ShoppingCart, Users, 
-  Package, DollarSign, LogOut, Menu, Bell, Settings
+import {
+  LayoutDashboard, Egg, ShoppingCart, Users,
+  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, Factory
 } from "lucide-react";
 import { useState } from "react";
 
@@ -12,31 +12,41 @@ export default function Layout({ children }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-     const handleLogout = () => {
+  const handleLogout = () => {
     cerrarSesion();
     navigate("/admin-login", { replace: true });
   };
 
-    const menuItems = [
-    { name: "Panel general", path: "/dashboard", icon: LayoutDashboard },
-    { name: "Producción", path: "/produccion", icon: Egg },
-    { name: "Pedidos", path: "/pedidos", icon: ShoppingCart },
-    { name: "Clientes", path: "/clientes", icon: Users },
-    { name: "Ventas", path: "/ventas", icon: DollarSign },
-    { name: "Inventario e Insumos", path: "/insumos", icon: Package },
-    { name: "Configuración", path: "/configuracion", icon: Settings },
-  ];
+  const roles = usuario?.roles?.map(r => r.codigo) || [];
+  const esSuperadmin = roles.includes("superadmin");
+  const esAdminGranja = roles.includes("admin_granja");
+  const esVentas = roles.includes("encargado_ventas");
+  const esProduccion = roles.includes("encargado_produccion");
+  const esAlmacen = roles.includes("encargado_almacen");
+
+  // Menú filtrado por rol
+  const menuItems = [
+    { name: "Panel general", path: "/dashboard", icon: LayoutDashboard, show: true },
+    { name: "Granjas", path: "/granjas", icon: Building2, show: esSuperadmin },
+    { name: "Producción", path: "/produccion", icon: Egg, show: esSuperadmin || esAdminGranja || esProduccion },
+    { name: "Abono", path: "/abono", icon: Wheat, show: esSuperadmin || esAdminGranja || esProduccion },
+    { name: "Pedidos", path: "/pedidos", icon: ShoppingCart, show: esSuperadmin || esAdminGranja || esVentas },
+    { name: "Clientes", path: "/clientes", icon: Users, show: esSuperadmin || esAdminGranja || esVentas },
+    { name: "Ventas", path: "/ventas", icon: DollarSign, show: esSuperadmin || esAdminGranja || esVentas },
+    { name: "Inventario", path: "/insumos", icon: Package, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Configuración", path: "/configuracion", icon: Settings, show: esSuperadmin || esAdminGranja },
+  ].filter(item => item.show);
 
   return (
-    <div className="min-h-screen bg-background flex font-sans">
-      
-      {/* SIDEBAR DESKTOP */}
+    <div className="min-h-screen bg-background flex">
       <aside className="hidden md:flex flex-col w-72 bg-white border-r border-gray-200 h-screen sticky top-0 z-20">
         <div className="h-20 flex items-center px-6 border-b border-gray-100">
           <span className="text-3xl mr-3">🥚</span>
           <div>
             <h1 className="text-xl font-black text-brand-600 tracking-tight">AVICONTROL</h1>
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Granja Los Pinos</p>
+            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">
+              {esSuperadmin ? "Plataforma global" : "Panel de granja"}
+            </p>
           </div>
         </div>
 
@@ -50,9 +60,7 @@ export default function Layout({ children }) {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center px-3 py-3 rounded-xl transition-colors font-bold text-[15px] ${
-                  isActive 
-                    ? "bg-brand-50 text-brand-700" 
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  isActive ? "bg-brand-50 text-brand-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
                 <Icon className={`w-5 h-5 mr-3 ${isActive ? "text-brand-600" : "text-gray-400"}`} strokeWidth={isActive ? 2.5 : 2} />
@@ -69,7 +77,9 @@ export default function Layout({ children }) {
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-gray-900 truncate">{usuario?.nombres} {usuario?.apellidos}</p>
-              <p className="text-xs text-gray-500 truncate capitalize font-medium">{usuario?.rol?.replace('_', ' ')}</p>
+              <p className="text-xs text-gray-500 truncate capitalize">
+                {usuario?.roles?.[0]?.nombre || "Sin rol"}
+              </p>
             </div>
           </div>
           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-600 hover:bg-red-50 py-2.5 rounded-xl transition-colors">
@@ -78,11 +88,8 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      {/* CONTENIDO PRINCIPAL */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Topbar Desktop */}
-        <header className="hidden md:flex bg-background h-20 items-center justify-between px-8 sticky top-0 z-10 backdrop-blur-md bg-opacity-90">
+        <header className="hidden md:flex bg-background h-20 items-center justify-between px-8 sticky top-0 z-10">
           <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
@@ -94,7 +101,6 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* Topbar Móvil */}
         <header className="md:hidden bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🥚</span>
@@ -105,7 +111,6 @@ export default function Layout({ children }) {
           </button>
         </header>
 
-        {/* Area de trabajo */}
         <main className="flex-1 p-4 md:p-8 max-w-[1400px] mx-auto w-full">
           {children}
         </main>

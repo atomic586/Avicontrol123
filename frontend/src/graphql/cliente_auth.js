@@ -7,6 +7,7 @@ export const LOGIN_CLIENTE = gql`
       refresh
       cliente {
         id
+        granjaId
         nombres
         apellidos
         dni
@@ -19,6 +20,7 @@ export const LOGIN_CLIENTE = gql`
 
 export const REGISTRO_CLIENTE = gql`
   mutation RegistroCliente(
+    $granjaId: ID!
     $nombres: String!
     $apellidos: String!
     $dni: String!
@@ -27,6 +29,7 @@ export const REGISTRO_CLIENTE = gql`
     $password: String!
   ) {
     registroCliente(
+      granjaId: $granjaId
       nombres: $nombres
       apellidos: $apellidos
       dni: $dni
@@ -38,6 +41,7 @@ export const REGISTRO_CLIENTE = gql`
       refresh
       cliente {
         id
+        granjaId
         nombres
         apellidos
         dni
