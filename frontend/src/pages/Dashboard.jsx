@@ -19,8 +19,11 @@ const DASHBOARD_QUERY = gql`
       ingresosTotales
       productoMasVendido
       productoMasVendidoCantidad
+<<<<<<< HEAD
       abonoGeneradoMesKg
       abonoVendidoMesKg
+=======
+>>>>>>> b674335 (creacion de segundo admin)
       insumosStockBajo { id nombre stock stockMinimo }
       insumosPorVencer { id nombre fechaVencimiento }
     }
@@ -35,6 +38,18 @@ const DASHBOARD_QUERY = gql`
       nombre
       codigo
     }
+<<<<<<< HEAD
+=======
+  }
+`;
+
+const ABONO_DASHBOARD_QUERY = gql`
+  query DashboardAbono {
+    dashboard {
+      abonoGeneradoMesKg
+      abonoVendidoMesKg
+    }
+>>>>>>> b674335 (creacion de segundo admin)
   }
 `;
 
@@ -63,6 +78,10 @@ function KpiCard({ title, value, icon: Icon, trend, colorClass, bgClass }) {
 export default function Dashboard() {
   const { usuario } = useAuth();
   const { data, loading, error } = useQuery(DASHBOARD_QUERY, { fetchPolicy: "network-only" });
+  const { data: abonoData } = useQuery(ABONO_DASHBOARD_QUERY, {
+    fetchPolicy: "network-only",
+    errorPolicy: "ignore",
+  });
 
   if (loading) {
     return <div className="flex justify-center py-20"><p className="text-lg font-bold text-gray-400 animate-pulse">Cargando panel general...</p></div>;
@@ -77,6 +96,10 @@ export default function Dashboard() {
   }
 
   const d = data.dashboard;
+<<<<<<< HEAD
+=======
+  const abonoStats = abonoData?.dashboard;
+>>>>>>> b674335 (creacion de segundo admin)
   const esSuperadmin = usuario?.roles?.some((r) => r.codigo === "superadmin");
   const granja = data.granjaActual;
 
@@ -116,8 +139,17 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+<<<<<<< HEAD
         <KpiCard title="Abono Generado (mes)" value={`${Number(d.abonoGeneradoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-amber-700" bgClass="bg-amber-600" trend="Recolectado" />
         <KpiCard title="Abono Vendido (mes)" value={`${Number(d.abonoVendidoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-green-700" bgClass="bg-green-600" trend="Comercializado" />
+=======
+        {abonoStats && (
+          <>
+            <KpiCard title="Abono Generado (mes)" value={`${Number(abonoStats.abonoGeneradoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-amber-700" bgClass="bg-amber-600" trend="Recolectado" />
+            <KpiCard title="Abono Vendido (mes)" value={`${Number(abonoStats.abonoVendidoMesKg).toFixed(0)} kg`} icon={Wheat} colorClass="text-green-700" bgClass="bg-green-600" trend="Comercializado" />
+          </>
+        )}
+>>>>>>> b674335 (creacion de segundo admin)
         <KpiCard title="Pedidos (mes)" value={d.pedidosMes} icon={ShoppingCart} colorClass="text-indigo-600" bgClass="bg-indigo-600" trend="Acumulados" />
       </div>
 

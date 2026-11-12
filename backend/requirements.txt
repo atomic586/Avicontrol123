@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> b674335 (creacion de segundo admin)
 asgiref==3.13.0
 cross-web==0.7.0
 Django==6.1.3

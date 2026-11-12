@@ -3,6 +3,7 @@ Schema GraphQL de AVICONTROL.
 Define Query (lecturas) y Mutation (escrituras) para las 12 tablas.
 """
 
+import re
 import strawberry
 import strawberry_django
 from typing import Optional, List
@@ -115,6 +116,8 @@ class DashboardType:
     ingresos_totales: Decimal
     producto_mas_vendido: str
     producto_mas_vendido_cantidad: int
+    abono_generado_mes_kg: Decimal
+    abono_vendido_mes_kg: Decimal
     insumos_stock_bajo: List[InsumoType]
     insumos_por_vencer: List[InsumoType]
 
@@ -327,6 +330,39 @@ class Query:
         producto_mas_vendido = top["producto__nombre"] if top else "Sin ventas aún"
         producto_mas_vendido_cantidad = top["total"] if top else 0
 
+        abono_generado_mes_kg = (
+            GeneracionAbono.objects.filter(fecha__gte=inicio_mes, fecha__lte=hoy)
+            .aggregate(total=Sum("cantidad_kg"))["total"]
+            or Decimal("0")
+        )
+        abono_vendido_mes_kg = Decimal("0")
+        detalles_abono = (
+            DetallePedido.objects.filter(
+                pedido__venta__fecha__gte=inicio_mes,
+                pedido__venta__fecha__lte=hoy,
+                producto__tipo="abono",
+            )
+            .select_related("producto")
+        )
+        for detalle in detalles_abono:
+            unidad = detalle.producto.unidad_medida
+            if unidad == "kg":
+                kg_por_unidad = Decimal("1")
+            elif unidad == "tonelada":
+                kg_por_unidad = Decimal("1000")
+            elif unidad == "saco":
+                peso = re.search(
+                    r"(\d+(?:[.,]\d+)?)\s*kg\b",
+                    detalle.producto.nombre,
+                    re.IGNORECASE,
+                )
+                if not peso:
+                    continue
+                kg_por_unidad = Decimal(peso.group(1).replace(",", "."))
+            else:
+                continue
+            abono_vendido_mes_kg += detalle.cantidad * kg_por_unidad
+
         insumos_bajos_list = [i for i in Insumo.objects.all() if i.stock_bajo]
 
         limite = hoy + timezone.timedelta(days=30)
@@ -346,6 +382,8 @@ class Query:
             ingresos_totales=ingresos_totales,
             producto_mas_vendido=producto_mas_vendido,
             producto_mas_vendido_cantidad=producto_mas_vendido_cantidad,
+            abono_generado_mes_kg=abono_generado_mes_kg,
+            abono_vendido_mes_kg=abono_vendido_mes_kg,
             insumos_stock_bajo=insumos_bajos_list,
             insumos_por_vencer=proximos_vencer,
         )

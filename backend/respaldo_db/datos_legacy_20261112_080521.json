@@ -1,0 +1,26 @@
+{
+  "granja": [],
+  "usuario": [],
+  "cliente": [],
+  "galpon": [],
+  "lote": [],
+  "produccion": [],
+  "producto": [],
+  "insumo": [],
+  "pedido": [],
+  "detalle_pedido": [],
+  "venta": [],
+  "auditoria": [],
+  "configuracion_tienda": [
+    {
+      "id": 1,
+      "hero_titulo": "Huevos frescos para tu hogar. Maplez para tu negocio.",
+      "hero_subtitulo": "Elige la calidad y la cantidad que necesitas. Envía tu pedido y coordinamos la disponibilidad y la entrega.",
+      "hero_cta_texto": "Hacer un pedido",
+      "hero_imagen_url": null,
+      "nombre_granja": "Granja Avícola AVICONTROL",
+      "telefono_contacto": "",
+      "actualizado_en": "2026-11-11 15:38:17.038184+00:00"
+    }
+  ]
+}

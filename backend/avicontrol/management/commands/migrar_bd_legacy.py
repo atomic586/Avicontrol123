@@ -202,7 +202,11 @@ class Command(BaseCommand):
             ),
             "cliente": (
                 "SELECT id, nombres, apellidos, dni, telefono, email, direccion, "
+<<<<<<< HEAD
                 "creado_en, usuario_id FROM cliente ORDER BY id"
+=======
+                "creado_en, NULL::integer AS usuario_id FROM cliente ORDER BY id"
+>>>>>>> b674335 (creacion de segundo admin)
             ),
             "galpon": (
                 "SELECT id, codigo, capacidad_aves, activo, creado_en, granja_id "
@@ -218,7 +222,11 @@ class Command(BaseCommand):
                 "FROM produccion ORDER BY id"
             ),
             "producto": (
+<<<<<<< HEAD
                 "SELECT id, nombre, presentacion, categoria, precio_unitario, stock, "
+=======
+                "SELECT id, nombre, presentacion, calidad AS categoria, precio_unitario, stock, "
+>>>>>>> b674335 (creacion de segundo admin)
                 "stock_minimo, activo, creado_en FROM producto ORDER BY id"
             ),
             "insumo": (
@@ -294,7 +302,23 @@ class Command(BaseCommand):
 
         granja_base = granjas[min(granjas)] if granjas else None
         if granja_base is None:
+<<<<<<< HEAD
             raise ValueError("La base legacy no tiene granjas; no se puede continuar.")
+=======
+            nombre_granja = (
+                datos["configuracion_tienda"][0].get("nombre_granja")
+                if datos["configuracion_tienda"] else "Granja Avícola AVICONTROL"
+            ) or "Granja Avícola AVICONTROL"
+            granja_base = Granja.objects.create(
+                nombre=nombre_granja,
+                codigo="AVICONTROL",
+                ubicacion="",
+                telefono="",
+                email="",
+                activo=True,
+            )
+            granjas[granja_base.pk] = granja_base
+>>>>>>> b674335 (creacion de segundo admin)
 
         roles = {}
         for codigo, nombre, descripcion in ROLES:
