@@ -223,3 +223,23 @@ class AuditoriaAdmin(admin.ModelAdmin):
 class ConfiguracionTiendaAdmin(admin.ModelAdmin):
     list_display = ("granja", "hero_titulo", "telefono_contacto", "actualizado_en")
     search_fields = ("granja__nombre", "hero_titulo")
+from .models import Proveedor, Compra, DetalleCompra
+
+@admin.register(Proveedor)
+class ProveedorAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "granja", "telefono", "activo")
+    list_filter = ("granja", "activo")
+    search_fields = ("nombre", "contacto")
+
+class DetalleCompraInline(admin.TabularInline):
+    model = DetalleCompra
+    extra = 1
+    readonly_fields = ("subtotal",)
+
+@admin.register(Compra)
+class CompraAdmin(admin.ModelAdmin):
+    list_display = ("id", "granja", "proveedor", "fecha", "total", "estado")
+    list_filter = ("granja", "estado", "fecha")
+    search_fields = ("proveedor__nombre", "numero_factura")
+    readonly_fields = ("total",)
+    inlines = [DetalleCompraInline]

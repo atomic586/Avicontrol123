@@ -173,8 +173,8 @@ export default function Clientes() {
                       <td className="p-4 text-gray-700">{c.telefono}</td>
                       <td className="p-4 text-gray-500">{c.email || "—"}</td>
                       <td className="p-4">
-                        <span className={c.puedeLogearse ? "badge-success" : "badge-info"}>
-                          {c.puedeLogearse ? "Activo" : "Sin cuenta"}
+                        <span className={c.puedeLoguearse ? "badge-success" : "badge-info"}>
+                          {c.puedeLoguearse ? "Activo" : "Sin cuenta"}
                         </span>
                       </td>
                       <td className="p-4 text-right whitespace-nowrap">

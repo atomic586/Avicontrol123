@@ -1,6 +1,6 @@
 """
 Schema GraphQL de AVICONTROL.
-Define Query (lecturas) y Mutation (escrituras) para las 12 tablas.
+Define Query (lecturas) y Mutation (escrituras) para todas las tablas.
 """
 
 import re
@@ -22,6 +22,7 @@ from avicontrol.models import (
     Usuario, Cliente, Granja, Galpon, Lote,
     Produccion, Producto, Insumo, Pedido, DetallePedido, Venta,
     GeneracionAbono, ConfiguracionTienda,
+    Proveedor, Compra, DetalleCompra, Almacen, MovimientoStock
 )
 from .types import (
     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
@@ -30,6 +31,7 @@ from .types import (
     ClienteBasicoType, ProductoBasicoType,
     DetallePedidoCompletoType, PedidoCompletoType, VentaCompletaType,
     ConfiguracionTiendaType,
+    ProveedorType, CompraCompletaType, DetalleCompraType
 )
 from .auth_jwt import generar_tokens, usuario_desde_request
 
@@ -41,6 +43,12 @@ from .auth_jwt import generar_tokens, usuario_desde_request
 class DetalleInput:
     producto_id: strawberry.ID
     cantidad: int
+
+@strawberry.input
+class DetalleCompraInput:
+    insumo_id: strawberry.ID
+    cantidad: Decimal
+    precio_unitario: Decimal
 
 
 @strawberry.type
@@ -243,6 +251,17 @@ class Query:
         if estado:
             qs = qs.filter(estado=estado)
         return list(qs)
+
+    # ---- PROVEEDORES Y COMPRAS ----
+    @strawberry.field
+    def proveedores(self, info: Info) -> List[ProveedorType]:
+        granja = _granja_por_defecto(info)
+        return list(Proveedor.objects.filter(granja=granja))
+
+    @strawberry.field
+    def compras(self, info: Info) -> List[CompraCompletaType]:
+        granja = _granja_por_defecto(info)
+        return list(Compra.objects.filter(granja=granja).prefetch_related("detalles__insumo"))
 
     # ---- PEDIDOS ----
     @strawberry.field
@@ -683,6 +702,62 @@ class Mutation:
     def eliminar_insumo(self, id: strawberry.ID) -> bool:
         eliminado, _ = Insumo.objects.filter(pk=id).delete()
         return eliminado > 0
+
+    # ---- PROVEEDORES Y COMPRAS ----
+    @strawberry.mutation
+    def crear_proveedor(
+        self, info: Info, nombre: str, telefono: str = "", email: Optional[str] = None
+    ) -> ProveedorType:
+        granja = _granja_por_defecto(info)
+        if Proveedor.objects.filter(granja=granja, nombre=nombre).exists():
+            raise ValueError("Ya existe un proveedor con ese nombre.")
+        return Proveedor.objects.create(
+            granja=granja, nombre=nombre, telefono=telefono, email=email
+        )
+
+    @strawberry.mutation
+    def registrar_compra(
+        self, info: Info, proveedor_id: strawberry.ID, fecha: date,
+        detalles: List[DetalleCompraInput], numero_factura: str = ""
+    ) -> CompraCompletaType:
+        granja = _granja_por_defecto(info)
+        proveedor = Proveedor.objects.filter(pk=proveedor_id, granja=granja).first()
+        if not proveedor:
+            raise ValueError("Proveedor no encontrado en esta granja.")
+
+        with transaction.atomic():
+            compra = Compra.objects.create(
+                granja=granja, proveedor=proveedor,
+                fecha=fecha, numero_factura=numero_factura, estado="recibida"
+            )
+            
+            almacen = Almacen.objects.filter(granja=granja).first()
+            
+            for d in detalles:
+                insumo = Insumo.objects.filter(pk=d.insumo_id, granja=granja).first()
+                if not insumo:
+                    raise ValueError(f"Insumo con ID {d.insumo_id} no encontrado.")
+                
+                DetalleCompra.objects.create(
+                    compra=compra, insumo=insumo,
+                    cantidad=d.cantidad, precio_unitario=d.precio_unitario
+                )
+                
+                # Actualizar stock automáticamente
+                insumo.stock += d.cantidad
+                insumo.save()
+
+                # Registrar movimiento de stock
+                if almacen:
+                    MovimientoStock.objects.create(
+                        granja=granja, almacen=almacen, insumo=insumo,
+                        tipo="entrada", motivo="compra", cantidad=d.cantidad,
+                        referencia=f"Compra #{compra.id}"
+                    )
+                    
+            compra.recalcular_total()
+            
+        return Compra.objects.prefetch_related("detalles__insumo").get(pk=compra.pk)
 
     # ---- PEDIDOS ----
     @strawberry.mutation

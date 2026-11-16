@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   LayoutDashboard, Egg, ShoppingCart, Users,
-  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, Factory
+  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag
 } from "lucide-react";
 import { useState } from "react";
 
@@ -34,6 +34,9 @@ export default function Layout({ children }) {
     { name: "Clientes", path: "/clientes", icon: Users, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Ventas", path: "/ventas", icon: DollarSign, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Inventario", path: "/insumos", icon: Package, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Proveedores", path: "/proveedores", icon: Truck, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Compras", path: "/compras", icon: ShoppingBag, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Usuarios", path: "/usuarios", icon: UserCog, show: esSuperadmin || esAdminGranja },
     { name: "Configuración", path: "/configuracion", icon: Settings, show: esSuperadmin || esAdminGranja },
   ].filter(item => item.show);
 

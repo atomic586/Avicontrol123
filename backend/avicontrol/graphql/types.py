@@ -1,6 +1,5 @@
 """
 Tipos GraphQL de Strawberry para AVICONTROL.
-Cada tipo mapea a un modelo Django (multi-granja).
 """
 
 import strawberry
@@ -13,12 +12,9 @@ from avicontrol.models import (
     Granja, Rol, Usuario, Cliente, Galpon, Lote, Produccion,
     Producto, Insumo, GeneracionAbono, Almacen, MovimientoStock,
     Pedido, DetallePedido, Venta, Auditoria, ConfiguracionTienda,
+    Proveedor, Compra, DetalleCompra,
 )
 
-
-# ============================================================
-# GRANJA
-# ============================================================
 @strawberry_django.type(Granja)
 class GranjaType:
     id: strawberry.ID
@@ -30,10 +26,6 @@ class GranjaType:
     activo: bool
     creado_en: datetime
 
-
-# ============================================================
-# ROL
-# ============================================================
 @strawberry_django.type(Rol)
 class RolType:
     id: strawberry.ID
@@ -42,10 +34,6 @@ class RolType:
     descripcion: str
     activo: bool
 
-
-# ============================================================
-# USUARIO
-# ============================================================
 @strawberry_django.type(Usuario)
 class UsuarioType:
     id: strawberry.ID
@@ -59,15 +47,10 @@ class UsuarioType:
     is_staff: bool
     granja_id: Optional[strawberry.ID]
     creado_en: datetime
-
     @strawberry.field
     def roles(self) -> List[RolType]:
         return list(self.roles.all())
 
-
-# ============================================================
-# CLIENTE
-# ============================================================
 @strawberry_django.type(Cliente)
 class ClienteType:
     id: strawberry.ID
@@ -82,7 +65,6 @@ class ClienteType:
     activo: bool
     creado_en: datetime
 
-
 @strawberry_django.type(Cliente)
 class ClienteBasicoType:
     id: strawberry.ID
@@ -92,10 +74,6 @@ class ClienteBasicoType:
     telefono: str
     email: Optional[str]
 
-
-# ============================================================
-# GALPÓN
-# ============================================================
 @strawberry_django.type(Galpon)
 class GalponType:
     id: strawberry.ID
@@ -105,14 +83,6 @@ class GalponType:
     activo: bool
     creado_en: datetime
 
-    @strawberry.field
-    def granja(self) -> GranjaType:
-        return self.granja
-
-
-# ============================================================
-# LOTE
-# ============================================================
 @strawberry_django.type(Lote)
 class LoteType:
     id: strawberry.ID
@@ -125,14 +95,6 @@ class LoteType:
     estado: str
     creado_en: datetime
 
-    @strawberry.field
-    def galpon(self) -> GalponType:
-        return self.galpon
-
-
-# ============================================================
-# PRODUCCIÓN
-# ============================================================
 @strawberry_django.type(Produccion)
 class ProduccionType:
     id: strawberry.ID
@@ -146,10 +108,6 @@ class ProduccionType:
     total: int
     creado_en: datetime
 
-
-# ============================================================
-# PRODUCTO (huevo / abono / otro)
-# ============================================================
 @strawberry_django.type(Producto)
 class ProductoType:
     id: strawberry.ID
@@ -165,7 +123,6 @@ class ProductoType:
     activo: bool
     creado_en: datetime
 
-
 @strawberry_django.type(Producto)
 class ProductoBasicoType:
     id: strawberry.ID
@@ -176,10 +133,6 @@ class ProductoBasicoType:
     unidad_medida: str
     precio_unitario: Decimal
 
-
-# ============================================================
-# INSUMO
-# ============================================================
 @strawberry_django.type(Insumo)
 class InsumoType:
     id: strawberry.ID
@@ -193,10 +146,6 @@ class InsumoType:
     fecha_vencimiento: Optional[date]
     creado_en: datetime
 
-
-# ============================================================
-# GENERACIÓN DE ABONO
-# ============================================================
 @strawberry_django.type(GeneracionAbono)
 class GeneracionAbonoType:
     id: strawberry.ID
@@ -210,10 +159,6 @@ class GeneracionAbonoType:
     observaciones: str
     creado_en: datetime
 
-
-# ============================================================
-# ALMACÉN Y MOVIMIENTOS
-# ============================================================
 @strawberry_django.type(Almacen)
 class AlmacenType:
     id: strawberry.ID
@@ -221,7 +166,6 @@ class AlmacenType:
     nombre: str
     ubicacion: str
     activo: bool
-
 
 @strawberry_django.type(MovimientoStock)
 class MovimientoStockType:
@@ -236,10 +180,6 @@ class MovimientoStockType:
     referencia: str
     creado_en: datetime
 
-
-# ============================================================
-# PEDIDO
-# ============================================================
 @strawberry_django.type(Pedido)
 class PedidoType:
     id: strawberry.ID
@@ -250,30 +190,17 @@ class PedidoType:
     total: Decimal
     creado_en: datetime
 
-
 @strawberry_django.type(Pedido)
 class PedidoCompletoType:
     id: strawberry.ID
-    granja_id: strawberry.ID
     estado: str
     total: Decimal
     fecha_pedido: date
     creado_en: datetime
-
     @strawberry.field
     def cliente(self) -> ClienteBasicoType:
         return self.cliente
 
-    @strawberry.field
-    def detalles_pedido(
-        self, pedido_id: Optional[strawberry.ID] = None
-    ) -> List["DetallePedidoCompletoType"]:
-        return list(self.detalles.select_related("producto").all())
-
-
-# ============================================================
-# DETALLE_PEDIDO
-# ============================================================
 @strawberry_django.type(DetallePedido)
 class DetallePedidoType:
     id: strawberry.ID
@@ -283,22 +210,16 @@ class DetallePedidoType:
     precio_unitario: Decimal
     subtotal: Decimal
 
-
 @strawberry_django.type(DetallePedido)
 class DetallePedidoCompletoType:
     id: strawberry.ID
     cantidad: Decimal
     precio_unitario: Decimal
     subtotal: Decimal
-
     @strawberry.field
     def producto(self) -> ProductoBasicoType:
         return self.producto
 
-
-# ============================================================
-# VENTA
-# ============================================================
 @strawberry_django.type(Venta)
 class VentaType:
     id: strawberry.ID
@@ -309,24 +230,17 @@ class VentaType:
     forma_pago: str
     creado_en: datetime
 
-
 @strawberry_django.type(Venta)
 class VentaCompletaType:
     id: strawberry.ID
-    granja_id: strawberry.ID
     fecha: date
     monto_total: Decimal
     forma_pago: str
     creado_en: datetime
-
     @strawberry.field
     def pedido(self) -> PedidoCompletoType:
         return self.pedido
 
-
-# ============================================================
-# AUDITORÍA
-# ============================================================
 @strawberry_django.type(Auditoria)
 class AuditoriaType:
     id: strawberry.ID
@@ -339,10 +253,6 @@ class AuditoriaType:
     detalle: strawberry.scalars.JSON
     creado_en: datetime
 
-
-# ============================================================
-# CONFIGURACIÓN DE LA TIENDA
-# ============================================================
 @strawberry_django.type(ConfiguracionTienda)
 class ConfiguracionTiendaType:
     id: strawberry.ID
@@ -354,6 +264,33 @@ class ConfiguracionTiendaType:
     telefono_contacto: str
     actualizado_en: datetime
 
-    @strawberry.field
-    def nombre_granja(self) -> str:
-        return self.granja.nombre
+@strawberry_django.type(Proveedor)
+class ProveedorType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    nombre: str
+    contacto: str
+    telefono: str
+    email: Optional[str]
+    direccion: str
+    activo: bool
+    creado_en: datetime
+
+@strawberry_django.type(DetalleCompra)
+class DetalleCompraType:
+    id: strawberry.ID
+    insumo_id: strawberry.ID
+    cantidad: Decimal
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+@strawberry_django.type(Compra)
+class CompraCompletaType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    proveedor_id: strawberry.ID
+    fecha: date
+    numero_factura: str
+    estado: str
+    total: Decimal
+    creado_en: datetime

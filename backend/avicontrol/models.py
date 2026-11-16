@@ -579,3 +579,87 @@ class ConfiguracionTienda(models.Model):
 
     def __str__(self):
         return f"Configuración: {self.granja.nombre}"
+
+
+# ============================================================
+# 16. PROVEEDOR
+# ============================================================
+class Proveedor(models.Model):
+    granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="proveedores")
+    nombre = models.CharField(max_length=150)
+    contacto = models.CharField(max_length=100, blank=True)
+    telefono = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True, null=True)
+    direccion = models.CharField(max_length=255, blank=True)
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "proveedor"
+        verbose_name = "Proveedor"
+        verbose_name_plural = "Proveedores"
+        ordering = ["nombre"]
+        unique_together = [("granja", "nombre")]
+
+    def __str__(self):
+        return self.nombre
+
+
+# ============================================================
+# 17. COMPRA Y DETALLE_COMPRA
+# ============================================================
+class Compra(models.Model):
+    ESTADOS = [
+        ("pendiente", "Pendiente"),
+        ("recibida", "Recibida"),
+        ("anulada", "Anulada"),
+    ]
+    granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="compras")
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT, related_name="compras")
+    fecha = models.DateField()
+    numero_factura = models.CharField(max_length=50, blank=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default="recibida")
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "compra"
+        verbose_name = "Compra"
+        verbose_name_plural = "Compras"
+        ordering = ["-fecha"]
+
+    def recalcular_total(self):
+        total = sum((d.subtotal for d in self.detalles.all()), Decimal("0"))
+        self.total = total
+        self.save(update_fields=["total"])
+        return self.total
+
+    def __str__(self):
+        return f"Compra #{self.pk} - {self.proveedor.nombre}"
+
+
+class DetalleCompra(models.Model):
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name="detalles")
+    insumo = models.ForeignKey(Insumo, on_delete=models.PROTECT, related_name="detalles_compra")
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=0)
+
+    class Meta:
+        db_table = "detalle_compra"
+        verbose_name = "Detalle de Compra"
+        verbose_name_plural = "Detalles de Compra"
+        unique_together = [("compra", "insumo")]
+
+    def save(self, *args, **kwargs):
+        self.subtotal = self.cantidad * self.precio_unitario
+        super().save(*args, **kwargs)
+        self.compra.recalcular_total()
+
+    def delete(self, *args, **kwargs):
+        compra = self.compra
+        super().delete(*args, **kwargs)
+        compra.recalcular_total()
+
+    def __str__(self):
+        return f"{self.insumo.nombre} x {self.cantidad}"
