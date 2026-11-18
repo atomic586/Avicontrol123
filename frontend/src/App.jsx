@@ -18,7 +18,10 @@ import Configuracion from "./pages/Configuracion";
 import Granjas from "./pages/Granjas";
 import Abono from "./pages/Abono";
 import Usuarios from "./pages/Usuarios";
+import Proveedores from "./pages/Proveedores";
+import Compras from "./pages/Compras";
 import Entregas from "./pages/Entregas";
+import Reportes from "./pages/Reportes";
 
 function RutaAdmin({ children }) {
   const { usuario, cargando } = useAuth();
@@ -61,9 +64,11 @@ function Rutas() {
       <Route path="/insumos" element={<RutaAdmin><Insumos /></RutaAdmin>} />
       <Route path="/produccion" element={<RutaAdmin><Produccion /></RutaAdmin>} />
       <Route path="/pedidos" element={<RutaAdmin><Pedidos /></RutaAdmin>} />
-      <Route path="/pedidos" element={<RutaAdmin><Pedidos /></RutaAdmin>} />
       <Route path="/entregas" element={<RutaAdmin><Entregas /></RutaAdmin>} />
       <Route path="/ventas" element={<RutaAdmin><Ventas /></RutaAdmin>} />
+      <Route path="/proveedores" element={<RutaAdmin><Proveedores /></RutaAdmin>} />
+      <Route path="/compras" element={<RutaAdmin><Compras /></RutaAdmin>} />
+      <Route path="/reportes" element={<RutaAdmin><Reportes /></RutaAdmin>} />
       <Route path="/configuracion" element={<RutaAdmin><Configuracion /></RutaAdmin>} />
       <Route path="/usuarios" element={<RutaAdmin><Usuarios /></RutaAdmin>} />
 

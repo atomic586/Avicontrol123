@@ -78,7 +78,7 @@ export default function Layout({ children }) {
             <label className="text-xs font-bold text-gray-500 mb-1 block uppercase tracking-wider">
               Granja Activa
             </label>
-            <select 
+            <select
               className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm font-medium focus:ring-2 focus:ring-brand-400 outline-none"
               value={granjaActiva}
               onChange={(e) => setGranjaActiva(e.target.value)}

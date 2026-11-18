@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { ShoppingCart, ArrowLeft, CheckCircle } from "lucide-react";
@@ -48,6 +48,7 @@ const CREAR_PEDIDO = gql`
 `;
 
 export default function HacerPedido() {
+  const navigate = useNavigate();
   const { cliente } = useClienteAuth();
 
   const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, { fetchPolicy: "cache-first" });
