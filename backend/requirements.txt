@@ -16,4 +16,4 @@ sqlparse==0.6.1
 strawberry-graphql==0.339.1
 strawberry-graphql-django==0.93.0
 typing_extensions==4.16.0
-tzdata==2026.6
+

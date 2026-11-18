@@ -2,15 +2,29 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   LayoutDashboard, Egg, ShoppingCart, Users,
-  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog
+  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag, BarChart2
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@apollo/client/react";
+import { gql } from "@apollo/client";
+
+// Query para obtener las granjas disponibles (solo para superadmin)
+const GRANJAS_QUERY = gql`
+  query GranjasParaSelector {
+    granjas {
+      id
+      nombre
+      codigo
+    }
+  }
+`;
 
 export default function Layout({ children }) {
   const { usuario, cerrarSesion } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [granjaActiva, setGranjaActiva] = useState("");
 
   const handleLogout = () => {
     cerrarSesion();
@@ -24,6 +38,9 @@ export default function Layout({ children }) {
   const esProduccion = roles.includes("encargado_produccion");
   const esAlmacen = roles.includes("encargado_almacen");
 
+  // Consulta de granjas (se salta si no es superadmin)
+  const { data: dataGranjas } = useQuery(GRANJAS_QUERY, { skip: !esSuperadmin });
+
   // Menú filtrado por rol
   const menuItems = [
     { name: "Panel general", path: "/dashboard", icon: LayoutDashboard, show: true },
@@ -31,9 +48,13 @@ export default function Layout({ children }) {
     { name: "Producción", path: "/produccion", icon: Egg, show: esSuperadmin || esAdminGranja || esProduccion },
     { name: "Abono", path: "/abono", icon: Wheat, show: esSuperadmin || esAdminGranja || esProduccion },
     { name: "Pedidos", path: "/pedidos", icon: ShoppingCart, show: esSuperadmin || esAdminGranja || esVentas },
+    { name: "Entregas", path: "/entregas", icon: Truck, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Clientes", path: "/clientes", icon: Users, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Ventas", path: "/ventas", icon: DollarSign, show: esSuperadmin || esAdminGranja || esVentas },
     { name: "Inventario", path: "/insumos", icon: Package, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Proveedores", path: "/proveedores", icon: Truck, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Compras", path: "/compras", icon: ShoppingBag, show: esSuperadmin || esAdminGranja || esAlmacen },
+    { name: "Reportes", path: "/reportes", icon: BarChart2, show: esSuperadmin || esAdminGranja },
     { name: "Usuarios", path: "/usuarios", icon: UserCog, show: esSuperadmin || esAdminGranja },
     { name: "Configuración", path: "/configuracion", icon: Settings, show: esSuperadmin || esAdminGranja },
   ].filter((item) => item.show);
@@ -50,6 +71,25 @@ export default function Layout({ children }) {
             </p>
           </div>
         </div>
+
+        {/* SELECTOR DE GRANJA (Solo Superadmin) */}
+        {esSuperadmin && (
+          <div className="px-4 py-3 border-b border-gray-100">
+            <label className="text-xs font-bold text-gray-500 mb-1 block uppercase tracking-wider">
+              Granja Activa
+            </label>
+            <select 
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm font-medium focus:ring-2 focus:ring-brand-400 outline-none"
+              value={granjaActiva}
+              onChange={(e) => setGranjaActiva(e.target.value)}
+            >
+              <option value="">Todas las granjas (Global)</option>
+              {dataGranjas?.granjas?.map((g) => (
+                <option key={g.id} value={g.id}>{g.codigo} - {g.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
           <p className="px-2 text-xs font-black text-gray-400 uppercase tracking-wider mb-3">Espacio de trabajo</p>

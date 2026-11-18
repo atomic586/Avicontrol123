@@ -91,6 +91,7 @@ class ClienteBasicoType:
     dni: str
     telefono: str
     email: Optional[str]
+    direccion: str  # <-- AGREGADO
 
 
 # ============================================================
@@ -256,6 +257,7 @@ class PedidoCompletoType:
     id: strawberry.ID
     granja_id: strawberry.ID
     estado: str
+    estado_entrega: str  # <-- AGREGADO
     total: Decimal
     fecha_pedido: date
     creado_en: datetime

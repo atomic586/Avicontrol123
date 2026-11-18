@@ -440,10 +440,17 @@ class Pedido(models.Model):
         ("entregado", "Entregado"),
         ("anulado", "Anulado"),
     ]
+    ESTADOS_ENTREGA = [
+        ("pendiente", "Pendiente"),
+        ("preparando", "Preparando"),
+        ("en_ruta", "En Ruta"),
+        ("entregado", "Entregado"),
+    ]
     granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="pedidos")
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name="pedidos")
     fecha_pedido = models.DateField()
     estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
+    estado_entrega = models.CharField(max_length=20, choices=ESTADOS_ENTREGA, default="pendiente")
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
     creado_en = models.DateTimeField(auto_now_add=True)
 
