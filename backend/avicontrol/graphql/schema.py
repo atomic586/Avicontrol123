@@ -24,6 +24,9 @@ from avicontrol.models import (
     GeneracionAbono, ConfiguracionTienda,
     Proveedor, Compra, DetalleCompra, Almacen, MovimientoStock
 )
+from avicontrol.gallinaza_models import (
+    ProductoGallinaza, EntradaGallinaza, VentaGallinaza, MovimientoGallinaza,
+)
 from .types import (
     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
     ProduccionType, ProductoType, InsumoType, PedidoType,
@@ -32,8 +35,11 @@ from .types import (
     DetallePedidoCompletoType, PedidoCompletoType, VentaCompletaType,
     ConfiguracionTiendaType,
     ProveedorType, CompraCompletaType, DetalleCompraType
+    , ProductoGallinazaType, EntradaGallinazaType, VentaGallinazaType,
+    MovimientoGallinazaType, PagoGallinazaType
 )
 from .auth_jwt import generar_tokens, usuario_desde_request
+from avicontrol.gallinaza_services import registrar_entrada, registrar_venta, registrar_pago
 
 
 # ============================================================
@@ -49,6 +55,13 @@ class DetalleCompraInput:
     insumo_id: strawberry.ID
     cantidad: Decimal
     precio_unitario: Decimal
+
+
+@strawberry.input
+class LineaGallinazaInput:
+    producto_id: strawberry.ID
+    unidad_vendida: str
+    cantidad: Decimal
 
 
 @strawberry.type
@@ -123,7 +136,7 @@ class DashboardType:
     pedidos_mes: int
     ingresos_totales: Decimal
     producto_mas_vendido: str
-    producto_mas_vendido_cantidad: int
+    producto_mas_vendido_cantidad: Decimal
     abono_generado_mes_kg: Decimal
     abono_vendido_mes_kg: Decimal
     insumos_stock_bajo: List[InsumoType]
@@ -250,6 +263,55 @@ class Query:
         qs = GeneracionAbono.objects.all()
         if estado:
             qs = qs.filter(estado=estado)
+        return list(qs)
+
+    # ---- OPERACIONES AISLADAS DE GALLINAZA ----
+    @strawberry.field
+    def productos_gallinaza(self, info: Info, solo_activos: bool = False) -> List[ProductoGallinazaType]:
+        granja = _granja_por_defecto(info)
+        qs = ProductoGallinaza.objects.filter(granja=granja)
+        if solo_activos:
+            qs = qs.filter(activo=True)
+        return list(qs)
+
+    @strawberry.field
+    def entradas_gallinaza(
+        self, info: Info, producto_id: Optional[strawberry.ID] = None,
+        fecha_desde: Optional[date] = None, fecha_hasta: Optional[date] = None,
+    ) -> List[EntradaGallinazaType]:
+        qs = EntradaGallinaza.objects.filter(granja=_granja_por_defecto(info)).select_related("producto")
+        if producto_id:
+            qs = qs.filter(producto_id=producto_id)
+        if fecha_desde:
+            qs = qs.filter(fecha__gte=fecha_desde)
+        if fecha_hasta:
+            qs = qs.filter(fecha__lte=fecha_hasta)
+        return list(qs)
+
+    @strawberry.field
+    def ventas_gallinaza(
+        self, info: Info, cliente_id: Optional[strawberry.ID] = None,
+        estado: Optional[str] = None, producto_id: Optional[strawberry.ID] = None,
+        fecha_desde: Optional[date] = None, fecha_hasta: Optional[date] = None,
+    ) -> List[VentaGallinazaType]:
+        qs = VentaGallinaza.objects.filter(granja=_granja_por_defecto(info)).select_related("cliente").prefetch_related("detalles__producto", "pagos")
+        if cliente_id:
+            qs = qs.filter(cliente_id=cliente_id)
+        if estado:
+            qs = qs.filter(estado=estado)
+        if producto_id:
+            qs = qs.filter(detalles__producto_id=producto_id).distinct()
+        if fecha_desde:
+            qs = qs.filter(fecha__gte=fecha_desde)
+        if fecha_hasta:
+            qs = qs.filter(fecha__lte=fecha_hasta)
+        return list(qs)
+
+    @strawberry.field
+    def movimientos_gallinaza(self, info: Info, producto_id: Optional[strawberry.ID] = None) -> List[MovimientoGallinazaType]:
+        qs = MovimientoGallinaza.objects.filter(granja=_granja_por_defecto(info)).select_related("producto")
+        if producto_id:
+            qs = qs.filter(producto_id=producto_id)
         return list(qs)
 
     # ---- PROVEEDORES Y COMPRAS ----
@@ -418,6 +480,67 @@ class Query:
 # ============================================================
 @strawberry.type
 class Mutation:
+
+    # ---- PRODUCTOS, ENTRADAS Y VENTAS DE GALLINAZA ----
+    @strawberry.mutation
+    def guardar_producto_gallinaza(
+        self, info: Info, nombre: str, precio_bulto: Decimal, precio_kg: Decimal,
+        precio_tonelada: Decimal, stock_minimo_kg: Decimal = Decimal("0"),
+        activo: bool = True, id: Optional[strawberry.ID] = None,
+    ) -> ProductoGallinazaType:
+        granja = _granja_por_defecto(info)
+        valores = {"nombre": nombre.strip(), "precio_bulto": precio_bulto,
+                   "precio_kg": precio_kg, "precio_tonelada": precio_tonelada,
+                   "stock_minimo_kg": stock_minimo_kg, "activo": activo}
+        if not valores["nombre"]:
+            raise ValueError("El nombre del producto es obligatorio.")
+        if any(v < 0 for v in (precio_bulto, precio_kg, precio_tonelada, stock_minimo_kg)):
+            raise ValueError("Precios y stock mínimo no pueden ser negativos.")
+        if id:
+            producto = ProductoGallinaza.objects.filter(pk=id, granja=granja).first()
+            if not producto:
+                raise ValueError("Producto de gallinaza no encontrado.")
+            for campo, valor in valores.items():
+                setattr(producto, campo, valor)
+            producto.save()
+            return producto
+        return ProductoGallinaza.objects.create(granja=granja, **valores)
+
+    @strawberry.mutation
+    def registrar_entrada_gallinaza(
+        self, info: Info, producto_id: strawberry.ID, fecha: date,
+        cantidad_kg: Decimal, origen: str, observaciones: str = "",
+    ) -> EntradaGallinazaType:
+        request = getattr(info.context, "request", None)
+        usuario = usuario_desde_request(request) if request else None
+        return registrar_entrada(granja=_granja_por_defecto(info), producto_id=producto_id,
+                                 fecha=fecha, cantidad_kg=cantidad_kg, origen=origen,
+                                 observaciones=observaciones, usuario=usuario)
+
+    @strawberry.mutation
+    def registrar_venta_gallinaza(
+        self, info: Info, fecha: date, lineas: List[LineaGallinazaInput],
+        metodo_pago: str, cliente_id: Optional[strawberry.ID] = None,
+        monto_recibido: Decimal = Decimal("0"),
+    ) -> VentaGallinazaType:
+        request = getattr(info.context, "request", None)
+        usuario = usuario_desde_request(request) if request else None
+        return registrar_venta(
+            granja=_granja_por_defecto(info), fecha=fecha,
+            lineas=[{"producto_id": linea.producto_id, "unidad_vendida": linea.unidad_vendida,
+                     "cantidad": linea.cantidad} for linea in lineas],
+            metodo_pago=metodo_pago, cliente_id=cliente_id,
+            monto_recibido=monto_recibido, usuario=usuario,
+        )
+
+    @strawberry.mutation
+    def registrar_pago_gallinaza(
+        self, info: Info, venta_id: strawberry.ID, monto: Decimal, metodo: str,
+    ) -> PagoGallinazaType:
+        request = getattr(info.context, "request", None)
+        usuario = usuario_desde_request(request) if request else None
+        return registrar_pago(granja=_granja_por_defecto(info), venta_id=venta_id,
+                              monto=monto, metodo=metodo, usuario=usuario)
 
     # ---- AUTENTICACIÓN ----
     @strawberry.mutation

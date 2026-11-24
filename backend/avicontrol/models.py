@@ -670,3 +670,15 @@ class DetalleCompra(models.Model):
 
     def __str__(self):
         return f"{self.insumo.nombre} x {self.cantidad}"
+
+
+# Modelos propios del módulo comercial de gallinaza. Se importan al final para
+# mantenerlos separados de los modelos generales y permitir que Django los registre.
+from .gallinaza_models import (  # noqa: E402,F401
+    ProductoGallinaza,
+    EntradaGallinaza,
+    VentaGallinaza,
+    DetalleVentaGallinaza,
+    PagoGallinaza,
+    MovimientoGallinaza,
+)
