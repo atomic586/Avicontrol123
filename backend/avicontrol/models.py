@@ -701,6 +701,9 @@ class ConfiguracionTienda(models.Model):
     hero_subtitulo = models.TextField(default="Elige la calidad y la cantidad que necesitas.")
     hero_cta_texto = models.CharField(max_length=80, default="Hacer un pedido")
     hero_imagen_url = models.URLField(blank=True, null=True)
+    hero_imagen = models.FileField(
+        upload_to="configuracion_tienda/hero/", blank=True, null=True
+    )
     telefono_contacto = models.CharField(max_length=30, blank=True, default="")
     actualizado_en = models.DateTimeField(auto_now=True)
 

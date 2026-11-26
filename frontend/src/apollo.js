@@ -2,11 +2,11 @@ import { ApolloClient, InMemoryCache, createHttpLink, from } from "@apollo/clien
 import { setContext } from "@apollo/client/link/context";
 
 // Endpoint GraphQL del backend Django (AVICONTROL)
-const uri =
+export const API_URL =
   import.meta.env.VITE_API_URL ||
   `${window.location.protocol}//${window.location.hostname}:8000/graphql/`;
 
-const httpLink = createHttpLink({ uri });
+const httpLink = createHttpLink({ uri: API_URL });
 
 // Adjunta el token JWT (staff y cliente) a cada petición
 const authLink = setContext((_, { headers }) => {

@@ -4,6 +4,7 @@ Tipos GraphQL de Strawberry para AVICONTROL.
 
 import strawberry
 import strawberry_django
+from strawberry.types import Info
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
@@ -339,6 +340,14 @@ class ConfiguracionTiendaType:
     @strawberry.field
     def nombre_granja(self) -> str:
         return self.granja.nombre
+
+    @strawberry.field
+    def hero_imagen_url_efectiva(self, info: Info) -> Optional[str]:
+        if self.hero_imagen:
+            url = self.hero_imagen.url
+            request = getattr(info.context, "request", None)
+            return request.build_absolute_uri(url) if request else url
+        return self.hero_imagen_url or None
 
 
 @strawberry_django.type(Proveedor)

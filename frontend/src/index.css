@@ -92,3 +92,8 @@ html[data-theme="dark"] [role="alert"] {
   background-color: #451a1a;
   color: #fecaca;
 }
+html[data-theme="dark"] .mensaje-exito {
+  border-color: #166534;
+  background-color: #14331f;
+  color: #bbf7d0;
+}

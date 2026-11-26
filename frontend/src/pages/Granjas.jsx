@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { mediaUrl } from "../utils/media";
 import { useQuery, useMutation } from "@apollo/client/react";
 import {
   Building2, Plus, Pencil, MapPin, Phone, Mail, Power, PowerOff,
@@ -89,14 +90,14 @@ export default function Granjas() {
               {/* Imagen Hero como fondo de la tarjeta */}
               <Link to={`/granjas/${g.id}`} className="block relative h-40 bg-gray-900 overflow-hidden">
                 {g.heroFinal ? (
-                  <img
-                    src={g.heroFinal}
-                    alt={g.nombre}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600"></div>
-                )}
+  <img
+    src={mediaUrl(g.heroFinal)}
+    alt={g.nombre}
+    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+  />
+) : (
+  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600"></div>
+)}
                 {/* Gradiente inferior para el texto */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
 

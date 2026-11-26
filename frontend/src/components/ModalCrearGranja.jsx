@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "@apollo/client/react";
-import { Building2, Image as ImageIcon, Upload, X, Link as LinkIcon } from "lucide-react";
+import { mediaUrl } from "../utils/media";
+import { Building2, X } from "lucide-react";
 import { CREAR_GRANJA, ACTUALIZAR_GRANJA } from "../graphql/granjas";
 import ImageUploader from "./ImageUploader";
 
@@ -13,8 +14,6 @@ const FORM_VACIO = {
   ubicacion: "",
   telefono: "",
   email: "",
-  logo: null,
-  imagenHero: null,
   logoUrl: "",
   imagenHeroUrl: "",
 };
@@ -30,7 +29,6 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
   useEffect(() => {
     if (granjaEditando) {
       setForm({
-        ...FORM_VACIO,
         nombre: granjaEditando.nombre || "",
         codigo: granjaEditando.codigo || "",
         razonSocial: granjaEditando.razonSocial || "",
@@ -50,41 +48,46 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  // ✅ Callback del ImageUploader que ACTUALIZA el estado `form`
+  const handleLogoChange = ({ url }) => {
+    setForm((prev) => ({ ...prev, logoUrl: url || "" }));
+  };
+
+  const handleHeroChange = ({ url }) => {
+    setForm((prev) => ({ ...prev, imagenHeroUrl: url || "" }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSubiendo(true);
 
     try {
+      // ✅ Aseguramos que las URLs se envían correctamente (nunca null, siempre string o "")
+      const variables = {
+        nombre: form.nombre,
+        ubicacion: form.ubicacion,
+        telefono: form.telefono || "",
+        email: form.email || "",
+        razonSocial: form.razonSocial || "",
+        nit: form.nit || "",
+        propietario: form.propietario || "",
+        logoUrl: form.logoUrl || "",
+        imagenHeroUrl: form.imagenHeroUrl || "",
+      };
+
       if (granjaEditando) {
         await actualizarGranja({
           variables: {
             id: granjaEditando.id,
-            nombre: form.nombre,
-            ubicacion: form.ubicacion,
-            telefono: form.telefono,
-            email: form.email,
-            razonSocial: form.razonSocial,
-            nit: form.nit,
-            propietario: form.propietario,
-            logoUrl: form.logo ? null : form.logoUrl,
-            imagenHeroUrl: form.imagenHero ? null : form.imagenHeroUrl,
+            ...variables,
           },
         });
-        // NOTA: La subida de archivos requiere un endpoint multipart (ver más abajo).
       } else {
         await crearGranja({
           variables: {
-            nombre: form.nombre,
             codigo: form.codigo,
-            ubicacion: form.ubicacion,
-            telefono: form.telefono,
-            email: form.email,
-            razonSocial: form.razonSocial,
-            nit: form.nit,
-            propietario: form.propietario,
-            logoUrl: form.logo ? null : form.logoUrl,
-            imagenHeroUrl: form.imagenHero ? null : form.imagenHeroUrl,
+            ...variables,
           },
         });
       }
@@ -100,9 +103,8 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 p-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black text-dark dark:text-white flex items-center gap-2">
@@ -113,14 +115,12 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
               Completa los datos comerciales y la identidad visual.
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
             <X className="w-6 h-6 text-gray-400" />
           </button>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
-          
           {/* SECCIÓN 1: Datos Básicos */}
           <div>
             <h3 className="text-lg font-bold text-dark dark:text-white mb-4 flex items-center gap-2">
@@ -130,7 +130,7 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Nombre Comercial *</label>
-                <input name="nombre" className="input-field" value={form.nombre} onChange={onChange} required placeholder="Ej: Granja Los Pinos" />
+                <input name="nombre" className="input-field" value={form.nombre} onChange={onChange} required />
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Código Único *</label>
@@ -141,12 +141,11 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
                   onChange={onChange}
                   required
                   disabled={!!granjaEditando}
-                  placeholder="Ej: GLP-001"
                 />
               </div>
               <div className="sm:col-span-2">
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Ubicación *</label>
-                <input name="ubicacion" className="input-field" value={form.ubicacion} onChange={onChange} required placeholder="Ej: Carretera a Copacabana Km 15" />
+                <input name="ubicacion" className="input-field" value={form.ubicacion} onChange={onChange} required />
               </div>
             </div>
           </div>
@@ -160,23 +159,23 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Razón Social</label>
-                <input name="razonSocial" className="input-field" value={form.razonSocial} onChange={onChange} placeholder="Ej: Inversiones Avícolas SRL" />
+                <input name="razonSocial" className="input-field" value={form.razonSocial} onChange={onChange} />
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">NIT</label>
-                <input name="nit" className="input-field" value={form.nit} onChange={onChange} placeholder="Ej: 123456789012" />
+                <input name="nit" className="input-field" value={form.nit} onChange={onChange} />
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Propietario</label>
-                <input name="propietario" className="input-field" value={form.propietario} onChange={onChange} placeholder="Ej: Juan Pérez" />
+                <input name="propietario" className="input-field" value={form.propietario} onChange={onChange} />
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Teléfono</label>
-                <input name="telefono" className="input-field" value={form.telefono} onChange={onChange} placeholder="Ej: +591 70000000" />
+                <input name="telefono" className="input-field" value={form.telefono} onChange={onChange} />
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 block">Email</label>
-                <input name="email" type="email" className="input-field" value={form.email} onChange={onChange} placeholder="contacto@granja.com" />
+                <input name="email" type="email" className="input-field" value={form.email} onChange={onChange} />
               </div>
             </div>
           </div>
@@ -188,29 +187,27 @@ export default function ModalCrearGranja({ open, onClose, granjaEditando, onSucc
               Identidad Visual
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <ImageUploader
-                label="Logo de la Granja"
-                type="logo"
-                initialPreview={form.logoUrl}
-                onChange={({ file, url }) => setForm({ ...form, logo: file, logoUrl: url })}
-              />
-              <ImageUploader
-                label="Imagen Hero (Fondo)"
-                type="hero"
-                initialPreview={form.imagenHeroUrl}
-                onChange={({ file, url }) => setForm({ ...form, imagenHero: file, imagenHeroUrl: url })}
-              />
+             <ImageUploader
+  label="Logo de la Granja"
+  type="logo"
+  initialPreview={mediaUrl(form.logoUrl)}
+  onChange={handleLogoChange}
+/>
+<ImageUploader
+  label="Imagen Hero (Fondo)"
+  type="hero"
+  initialPreview={mediaUrl(form.imagenHeroUrl)}
+  onChange={handleHeroChange}
+/>
             </div>
           </div>
 
-          {/* Mensaje de Error */}
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm p-4 rounded-xl border border-red-200 dark:border-red-800">
               {error}
             </div>
           )}
 
-          {/* Botones */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
             <button type="button" onClick={onClose} className="btn-secondary" disabled={subiendo}>
               Cancelar

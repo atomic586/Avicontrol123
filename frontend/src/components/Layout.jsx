@@ -61,9 +61,7 @@ export default function Layout({ children }) {
     { 
       grupo: "Producción", 
       items: [
-        // CAMBIADO: Ahora apunta a /granjas en lugar de /infraestructura
         { name: "Granjas", path: "/granjas", icon: Building2, show: esSuperadmin || esAdminGranja || esProduccion },
-        { name: "Aves", path: "/produccion", icon: Bird, show: esSuperadmin || esAdminGranja || esProduccion },
         { name: "Producción", path: "/produccion", icon: Egg, show: esSuperadmin || esAdminGranja || esProduccion },
         { name: "Abono", path: "/abono", icon: Wheat, show: esSuperadmin || esAdminGranja || esProduccion },
         { name: "Medicamentos", path: "/medicamentos-alimento", icon: Pill, show: esSuperadmin || esAdminGranja || esAlmacen || esProduccion },
@@ -143,7 +141,7 @@ export default function Layout({ children }) {
                     const Icon = item.icon;
                     return (
                       <Link
-                        key={item.path}
+                        key={item.name}
                         to={item.path}
                         className={`flex items-center px-3 py-2.5 rounded-xl transition-all font-bold text-sm ${
                           isActive 

@@ -1,48 +1,88 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@apollo/client/react";
-import { gql } from "@apollo/client";
 import {
   Egg, Activity, ClipboardList, ShoppingBag, LayoutDashboard,
-  Calendar, TrendingUp, AlertCircle, Plus
+  Plus, ArrowUpRight, ArrowDownRight, Home as HomeIcon
 } from "lucide-react";
+import { LOTE_DETALLE_QUERY } from "../graphql/lotes";
 import ProduccionChart from "../components/ProduccionChart";
+import HuevoMascota from "../components/HuevoMascota";
+import ModalMovimientoAve from "../components/ModalMovimientoAve";
+import ModalProduccion from "../components/ModalProduccion";
+import ModalConsumo from "../components/ModalConsumo";
 
-const LOTE_DETALLE_QUERY = gql`
-  query LoteDetalle($id: ID!) {
-    lote(id: $id) {
-      id
-      galponId
-      codigo
-      raza
-      fechaIngreso
-      fechaNacimiento
-      cantidadAves
-      estado
-      etapa
-      avesActuales
-      porcentajeMortalidad
-      edadSemanas
-    }
-  }
-`;
+const TIPO_LABEL = {
+  ingreso: "Ingreso",
+  muerte: "Muerte",
+  venta: "Venta",
+  traslado_salida: "Traslado sale",
+  traslado_entrada: "Traslado entra",
+  descarte: "Descarte",
+  ajuste_positivo: "Ajuste +",
+  ajuste_negativo: "Ajuste −",
+};
+
+const TIPO_COLOR = {
+  ingreso: "badge-success",
+  traslado_entrada: "badge-success",
+  ajuste_positivo: "badge-success",
+  muerte: "badge-danger",
+  descarte: "badge-danger",
+  ajuste_negativo: "badge-danger",
+  venta: "badge-info",
+  traslado_salida: "badge-warning",
+};
 
 export default function LoteDetalle() {
   const { id } = useParams();
   const [tab, setTab] = useState("resumen");
+  const [modalMov, setModalMov] = useState(false);
+  const [modalProd, setModalProd] = useState(false);
+  const [modalCons, setModalCons] = useState(false);
 
-  const { data, loading, error } = useQuery(LOTE_DETALLE_QUERY, {
+  const { data, loading, error, refetch } = useQuery(LOTE_DETALLE_QUERY, {
     variables: { id },
     fetchPolicy: "network-only",
   });
 
-  if (loading) return <div className="p-12 text-center text-gray-500">Cargando lote...</div>;
-  if (error) return <div className="card text-red-600 p-4">Error: {error.message}</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 min-h-[50vh]">
+        <HuevoMascota phase="loading" />
+        <p className="text-gray-500 dark:text-gray-400 font-bold mt-6">Cargando lote...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
+        <p className="font-bold mb-2">Error al cargar el lote:</p>
+        <p className="text-sm font-mono">{error.message}</p>
+      </div>
+    );
+  }
 
   const lote = data?.lote;
-  if (!lote) return <div className="card text-center py-12 text-gray-500">Lote no encontrado.</div>;
+  if (!lote) {
+    return <div className="card text-center py-12 text-gray-500">Lote no encontrado.</div>;
+  }
+
+  const movimientos = data?.movimientosAvesLote ?? [];
+  const producciones = data?.producciones ?? [];
+  const consumos = data?.consumosLote ?? [];
 
   const avesPerdidas = lote.cantidadAves - lote.avesActuales;
+
+  // Últimos 30 días de producción para el gráfico
+  const produccionChart = [...producciones]
+    .slice(0, 30)
+    .reverse()
+    .map((p) => ({
+      fecha: new Date(p.fecha).toLocaleDateString("es-BO", { day: "2-digit", month: "short" }),
+      huevos: p.total,
+    }));
 
   return (
     <div className="space-y-6 pb-10">
@@ -108,13 +148,13 @@ export default function LoteDetalle() {
 
       {/* ACCIONES RÁPIDAS */}
       <div className="flex flex-wrap gap-2">
-        <button className="btn-primary">
+        <button onClick={() => setModalMov(true)} className="btn-primary">
           <Plus className="w-5 h-5" /> Registrar Movimiento
         </button>
-        <button className="btn-secondary">
+        <button onClick={() => setModalProd(true)} className="btn-secondary">
           <Plus className="w-5 h-5" /> Registrar Producción
         </button>
-        <button className="btn-secondary">
+        <button onClick={() => setModalCons(true)} className="btn-secondary">
           <Plus className="w-5 h-5" /> Registrar Consumo
         </button>
       </div>
@@ -123,9 +163,9 @@ export default function LoteDetalle() {
       <div className="flex flex-wrap gap-2">
         {[
           { key: "resumen", label: "Resumen", icon: LayoutDashboard },
-          { key: "movimientos", label: "Movimientos", icon: Activity },
-          { key: "produccion", label: "Producción", icon: Egg },
-          { key: "consumos", label: "Consumos", icon: ShoppingBag },
+          { key: "movimientos", label: `Movimientos (${movimientos.length})`, icon: Activity },
+          { key: "produccion", label: `Producción (${producciones.length})`, icon: Egg },
+          { key: "consumos", label: `Consumos (${consumos.length})`, icon: ShoppingBag },
         ].map((t) => {
           const Icon = t.icon;
           const active = tab === t.key;
@@ -133,9 +173,9 @@ export default function LoteDetalle() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-5 py-3 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all ${
+              className={`px-5 py-3 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all whitespace-nowrap ${
                 active
-                  ? "bg-dark dark:bg-white text-white dark:text-dark shadow-md"
+                  ? "bg-dark text-white dark:bg-white dark:text-dark shadow-md"
                   : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
               }`}
             >
@@ -145,26 +185,156 @@ export default function LoteDetalle() {
         })}
       </div>
 
+      {/* CONTENIDO */}
       {tab === "resumen" && (
-        <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
-          Próximamente: resumen completo del lote.
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <ProduccionChart data={produccionChart} loading={loading} />
         </div>
       )}
+
       {tab === "movimientos" && (
-        <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
-          Próximamente: historial de movimientos de aves.
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {movimientos.length === 0 ? (
+            <p className="p-12 text-center text-gray-500 dark:text-gray-400">
+              Este lote no tiene movimientos registrados.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="text-left p-4 font-bold">Fecha</th>
+                    <th className="text-left p-4 font-bold">Tipo</th>
+                    <th className="text-right p-4 font-bold">Cantidad</th>
+                    <th className="text-left p-4 font-bold">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movimientos.map((m) => (
+                    <tr key={m.id} className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
+                      <td className="p-4 text-gray-700 dark:text-gray-300">
+                        {new Date(m.fecha).toLocaleDateString("es-BO")}
+                      </td>
+                      <td className="p-4">
+                        <span className={TIPO_COLOR[m.tipo] || "badge-info"}>
+                          {TIPO_LABEL[m.tipo] || m.tipo}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-bold text-dark dark:text-white">
+                        {m.tipo.includes("entrada") || m.tipo === "ingreso" || m.tipo === "ajuste_positivo" ? (
+                          <span className="text-green-600 flex items-center justify-end gap-1">
+                            <ArrowUpRight className="w-4 h-4" /> {m.cantidad}
+                          </span>
+                        ) : (
+                          <span className="text-red-500 flex items-center justify-end gap-1">
+                            <ArrowDownRight className="w-4 h-4" /> {m.cantidad}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-500 dark:text-gray-400">{m.motivo || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
+
       {tab === "produccion" && (
-        <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
-          Próximamente: producción diaria del lote (con gráfico).
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <ProduccionChart data={produccionChart} loading={loading} />
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden">
+            {producciones.length === 0 ? (
+              <p className="p-12 text-center text-gray-500 dark:text-gray-400">
+                No hay producciones registradas.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                    <tr>
+                      <th className="text-left p-4 font-bold">Fecha</th>
+                      <th className="text-right p-4 font-bold">1ra</th>
+                      <th className="text-right p-4 font-bold">2da</th>
+                      <th className="text-right p-4 font-bold">3ra</th>
+                      <th className="text-right p-4 font-bold">Descartados</th>
+                      <th className="text-right p-4 font-bold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {producciones.map((p) => (
+                      <tr key={p.id} className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
+                        <td className="p-4 text-gray-700 dark:text-gray-300">
+                          {new Date(p.fecha).toLocaleDateString("es-BO")}
+                        </td>
+                        <td className="p-4 text-right text-gray-700 dark:text-gray-300">{p.huevosPrimera}</td>
+                        <td className="p-4 text-right text-gray-700 dark:text-gray-300">{p.huevosSegunda}</td>
+                        <td className="p-4 text-right text-gray-700 dark:text-gray-300">{p.huevosTercera}</td>
+                        <td className="p-4 text-right text-gray-500">{p.huevosDescartados}</td>
+                        <td className="p-4 text-right font-black text-orange-600">{p.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
       {tab === "consumos" && (
-        <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
-          Próximamente: consumos de alimento del lote.
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {consumos.length === 0 ? (
+            <p className="p-12 text-center text-gray-500 dark:text-gray-400">
+              No hay consumos registrados.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="text-left p-4 font-bold">Fecha</th>
+                    <th className="text-right p-4 font-bold">Cantidad (kg)</th>
+                    <th className="text-left p-4 font-bold">Observaciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {consumos.map((c) => (
+                    <tr key={c.id} className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50">
+                      <td className="p-4 text-gray-700 dark:text-gray-300">
+                        {new Date(c.fecha).toLocaleDateString("es-BO")}
+                      </td>
+                      <td className="p-4 text-right font-bold text-orange-600">{c.cantidad} kg</td>
+                      <td className="p-4 text-gray-500 dark:text-gray-400">{c.observaciones || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
+
+      {/* MODALES */}
+      <ModalMovimientoAve
+        open={modalMov}
+        onClose={() => setModalMov(false)}
+        lote={lote}
+        onSuccess={() => refetch()}
+      />
+      <ModalProduccion
+        open={modalProd}
+        onClose={() => setModalProd(false)}
+        lote={lote}
+        onSuccess={() => refetch()}
+      />
+      <ModalConsumo
+        open={modalCons}
+        onClose={() => setModalCons(false)}
+        lote={lote}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

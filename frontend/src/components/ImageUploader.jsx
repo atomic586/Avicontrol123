@@ -1,21 +1,48 @@
 import { useState, useRef } from "react";
-import { Upload, X, Link as LinkIcon, Image as ImageIcon } from "lucide-react";
+import { Upload, X, Link as LinkIcon, Image as ImageIcon, Loader2 } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function ImageUploader({ label, onChange, type = "logo", initialPreview = "" }) {
   const [preview, setPreview] = useState(initialPreview);
   const [useUrl, setUseUrl] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState("");
   const fileInputRef = useRef(null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-        onChange({ file, url: null });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setError("");
+    setSubiendo(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("archivo", file);
+      formData.append("tipo", type);
+
+      // Normaliza la URL (quita /graphql/ si lo tiene)
+      const baseUrl = API_URL.replace(/\/graphql\/?$/, "").replace(/\/+$/, "");
+      const response = await fetch(`${baseUrl}/api/upload/`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Error al subir la imagen.");
+      }
+
+      setPreview(`${baseUrl}${data.url}`);
+      onChange({ file: null, url: data.url });
+    } catch (err) {
+      setError(err.message);
+      setPreview(null);
+    } finally {
+      setSubiendo(false);
     }
   };
 
@@ -29,6 +56,7 @@ export default function ImageUploader({ label, onChange, type = "logo", initialP
   const removeImage = () => {
     setPreview(null);
     setUrlInput("");
+    setError("");
     onChange({ file: null, url: null });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -40,7 +68,7 @@ export default function ImageUploader({ label, onChange, type = "logo", initialP
         <button
           type="button"
           onClick={() => setUseUrl(!useUrl)}
-          className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
+          className="text-xs font-bold text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1"
         >
           {useUrl ? (
             <><Upload className="w-3 h-3" /> Subir archivo</>
@@ -71,6 +99,15 @@ export default function ImageUploader({ label, onChange, type = "logo", initialP
             <X className="w-4 h-4" />
           </button>
         </div>
+      ) : subiendo ? (
+        <div
+          className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 ${
+            type === "logo" ? "h-32" : "h-48"
+          }`}
+        >
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mb-2" />
+          <p className="text-sm font-bold text-gray-600 dark:text-gray-400">Subiendo imagen...</p>
+        </div>
       ) : useUrl ? (
         <div className="flex gap-2">
           <input
@@ -93,8 +130,14 @@ export default function ImageUploader({ label, onChange, type = "logo", initialP
         >
           <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
           <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Haz clic para subir</p>
-          <p className="text-xs text-gray-500 mt-1">PNG, JPG hasta 5MB</p>
+          <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP hasta 5MB</p>
         </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-red-600 font-bold bg-red-50 dark:bg-red-900/20 p-2 rounded-lg">
+          {error}
+        </p>
       )}
 
       <input

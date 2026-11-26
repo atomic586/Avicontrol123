@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
+import { mediaUrl } from "../utils/media";
 import { gql } from "@apollo/client";
 import {
   Home, Users, Egg, Settings, ShoppingCart, LayoutDashboard,
@@ -179,11 +180,11 @@ export default function GranjaDetalle() {
       {/* HERO CON IMAGEN Y DIFUMINADO */}
       <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden relative">
         <div className="h-64 sm:h-80 w-full relative bg-gray-900">
-          {g.heroFinal ? (
-            <img src={g.heroFinal} alt={g.nombre} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 dark:from-orange-600 dark:to-orange-900"></div>
-          )}
+         {g.heroFinal ? (
+  <img src={mediaUrl(g.heroFinal)} alt={g.nombre} className="w-full h-full object-cover" />
+) : (
+  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 dark:from-orange-600 dark:to-orange-900"></div>
+)}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
 
           <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
