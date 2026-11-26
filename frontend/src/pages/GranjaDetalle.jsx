@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { mediaUrl } from "../utils/media";
 import { gql } from "@apollo/client";
@@ -9,6 +9,7 @@ import {
   Calendar, TrendingUp, AlertCircle, ChevronRight, Pencil
 } from "lucide-react";
 import { CAMBIAR_ESTADO_GRANJA } from "../graphql/granjas";
+import { useAuth } from "../auth/AuthContext";
 import HuevoMascota from "../components/HuevoMascota";
 import ProduccionChart from "../components/ProduccionChart";
 import FilterBar from "../components/FilterBar";
@@ -92,6 +93,8 @@ const ROL_COLOR = {
 
 export default function GranjaDetalle() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { cerrarSesion, esSuperadmin } = useAuth();
   const [tab, setTab] = useState("resumen");
   const [editando, setEditando] = useState(false);
 
@@ -131,10 +134,35 @@ export default function GranjaDetalle() {
   }
 
   if (error) {
+    const mensajes = [...new Set(
+      error.message.split("\n").map((mensaje) => mensaje.trim()).filter(Boolean)
+    )];
+    const esPermiso = mensajes.some((mensaje) => /permiso|superadministrador|autenticad/i.test(mensaje));
     return (
       <div className="card bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
         <p className="font-bold mb-2">Error al cargar la granja:</p>
-        <p className="text-sm font-mono bg-white dark:bg-gray-900 p-2 rounded border border-red-200 dark:border-red-800">{error.message}</p>
+        <p className="text-sm font-mono bg-white dark:bg-gray-900 p-2 rounded border border-red-200 dark:border-red-800">{mensajes[0]}</p>
+        {mensajes.length > 1 && (
+          <p className="text-xs mt-1">Se omitieron {mensajes.length - 1} mensajes repetidos.</p>
+        )}
+        {esPermiso && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <p className="text-sm">
+              Cierra sesión y vuelve a entrar con una cuenta con rol de superadministrador o administrador de esta granja.
+            </p>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                cerrarSesion();
+                navigate("/login", { replace: true });
+              }}
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        )}
+        <Link to="/granjas" className="btn-secondary mt-4 inline-flex">Volver a granjas</Link>
       </div>
     );
   }
@@ -215,17 +243,19 @@ export default function GranjaDetalle() {
               </div>
             </div>
 
-            <button
-              onClick={toggleEstado}
-              disabled={cambiandoEstado}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors backdrop-blur-md border ${
-                g.activo
-                  ? "bg-white/10 text-white border-white/30 hover:bg-white/20"
-                  : "bg-green-500/80 text-white border-green-400 hover:bg-green-500"
-              }`}
-            >
-              {g.activo ? <><PowerOff className="w-4 h-4" /> Suspender</> : <><Power className="w-4 h-4" /> Activar</>}
-            </button>
+            {esSuperadmin && (
+              <button
+                onClick={toggleEstado}
+                disabled={cambiandoEstado}
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors backdrop-blur-md border ${
+                  g.activo
+                    ? "bg-white/10 text-white border-white/30 hover:bg-white/20"
+                    : "bg-green-500/80 text-white border-green-400 hover:bg-green-500"
+                }`}
+              >
+                {g.activo ? <><PowerOff className="w-4 h-4" /> Suspender</> : <><Power className="w-4 h-4" /> Activar</>}
+              </button>
+            )}
           </div>
         </div>
 

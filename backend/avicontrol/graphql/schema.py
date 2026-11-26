@@ -181,6 +181,21 @@ def requerir_rol(info: Info, roles_permitidos: list) -> Usuario:
     return user
 
 
+def requerir_acceso_granja(info: Info, granja_id) -> Usuario:
+    user = usuario_desde_request(info.context.request)
+    if not user:
+        raise ValueError("No autenticado. Cierra sesión y vuelve a entrar.")
+    roles_usuario = [r.codigo for r in user.roles.all()]
+    if Rol.SUPERADMIN in roles_usuario:
+        return user
+    if Rol.ADMIN_GRANJA in roles_usuario and str(user.granja_id) == str(granja_id):
+        return user
+    raise ValueError(
+        f"No tienes permiso para ver esta granja. "
+        f"Tu usuario ({user.username}) tiene los roles: {', '.join(roles_usuario) or 'ninguno'}."
+    )
+
+
 @strawberry.type
 class EstadisticasGranjaType:
     total_galpones: int
@@ -324,12 +339,12 @@ class Query:
 
     @strawberry.field
     def granja(self, info: Info, id: strawberry.ID) -> Optional[GranjaType]:
-        requerir_superadmin(info)
+        requerir_acceso_granja(info, id)
         return Granja.objects.filter(pk=id).first()
 
     @strawberry.field
     def estadisticas_granja(self, info: Info, id: strawberry.ID) -> EstadisticasGranjaType:
-        requerir_superadmin(info)
+        requerir_acceso_granja(info, id)
         granja = Granja.objects.filter(pk=id).first()
         if not granja:
             raise ValueError("Granja no encontrada.")
@@ -351,12 +366,12 @@ class Query:
 
     @strawberry.field
     def galpones_granja(self, info: Info, id: strawberry.ID) -> List[GalponType]:
-        requerir_superadmin(info)
+        requerir_acceso_granja(info, id)
         return list(Galpon.objects.filter(granja_id=id))
 
     @strawberry.field
     def usuarios_granja(self, info: Info, id: strawberry.ID) -> List[UsuarioType]:
-        requerir_superadmin(info)
+        requerir_acceso_granja(info, id)
         return list(Usuario.objects.filter(granja_id=id))
 
     # ---- NUEVAS QUERIES PARA EL DASHBOARD DE GRANJA ----

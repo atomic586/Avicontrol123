@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import {
@@ -93,7 +94,9 @@ export default function Produccion() {
   const puedeRegistrar = tieneRol(["superadmin", "admin_granja", "encargado_produccion"]);
   const puedeAlmacen = tieneRol(["superadmin", "admin_granja", "encargado_produccion", "encargado_almacen"]);
 
-  const [tab, setTab] = useState("produccion");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("seccion");
+  const tab = requestedTab === "aves" || requestedTab === "alimento" ? requestedTab : "produccion";
 
   // ==========================================
   // TAB 1: PRODUCCIÓN
@@ -260,7 +263,7 @@ export default function Produccion() {
           return (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => setSearchParams(t.key === "produccion" ? {} : { seccion: t.key }, { replace: true })}
               className={`px-4 py-3 font-bold text-sm flex items-center gap-2 border-b-2 transition-colors ${
                 tab === t.key
                   ? "border-brand-500 text-brand-700"

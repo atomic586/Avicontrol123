@@ -3,9 +3,9 @@ import { useAuth } from "../auth/AuthContext";
 import { useGranja } from "../context/GranjaContext";
 import {
   LayoutDashboard, Egg, ShoppingCart, Users,
-  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag, BarChart2, Home, Bird, ClipboardList, Pill
+  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag, BarChart2, Home, Bird, ClipboardList, Pill, ChevronDown
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
 import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
@@ -26,6 +26,12 @@ export default function Layout({ children }) {
   const location = useLocation();
   const { granjaActiva, setGranjaActiva } = useGranja();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const rutaProduccionActiva = location.pathname.startsWith("/produccion") || location.pathname.startsWith("/abono");
+  const [produccionOpen, setProduccionOpen] = useState(rutaProduccionActiva);
+
+  useEffect(() => {
+    if (rutaProduccionActiva) setProduccionOpen(true);
+  }, [rutaProduccionActiva]);
 
   const handleLogout = () => {
     cerrarSesion();
@@ -38,6 +44,10 @@ export default function Layout({ children }) {
   const esVentas = roles.includes("encargado_ventas");
   const esProduccion = roles.includes("encargado_produccion");
   const esAlmacen = roles.includes("encargado_almacen");
+
+  const rutaHijaActiva = (child) => location.pathname === child.path && (
+    !child.search || location.search === child.search || (!location.search && child.search === "?seccion=produccion")
+  );
 
   const { data: dataGranjas } = useQuery(GRANJAS_QUERY, { skip: !esSuperadmin });
 
@@ -62,8 +72,16 @@ export default function Layout({ children }) {
       grupo: "Producción", 
       items: [
         { name: "Granjas", path: "/granjas", icon: Building2, show: esSuperadmin || esAdminGranja || esProduccion },
-        { name: "Producción", path: "/produccion", icon: Egg, show: esSuperadmin || esAdminGranja || esProduccion },
-        { name: "Abono", path: "/abono", icon: Wheat, show: esSuperadmin || esAdminGranja || esProduccion },
+        {
+          name: "Producción",
+          icon: Egg,
+          show: esSuperadmin || esAdminGranja || esProduccion,
+          children: [
+            { name: "Huevos", path: "/produccion", search: "?seccion=produccion", icon: Egg },
+            { name: "Aves", path: "/produccion", search: "?seccion=aves", icon: Bird },
+            { name: "Abono", path: "/abono", icon: Wheat },
+          ],
+        },
         { name: "Medicamentos", path: "/medicamentos-alimento", icon: Pill, show: esSuperadmin || esAdminGranja || esAlmacen || esProduccion },
       ]
     },
@@ -137,6 +155,48 @@ export default function Layout({ children }) {
                 </p>
                 <div className="space-y-1">
                   {itemsVisibles.map((item) => {
+                    if (item.children) {
+                      const childrenVisibles = item.children;
+                      const grupoActivo = childrenVisibles.some(rutaHijaActiva);
+                      const GrupoIcon = item.icon;
+                      return (
+                        <div key={item.name}>
+                          <button
+                            type="button"
+                            onClick={() => setProduccionOpen((abierto) => !abierto)}
+                            aria-expanded={produccionOpen}
+                            aria-controls="submenu-produccion"
+                            className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all font-bold text-sm ${
+                              grupoActivo ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-md shadow-orange-500/20" : "text-gray-400 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            <GrupoIcon className={`w-5 h-5 mr-3 ${grupoActivo ? "text-white" : "text-gray-400"}`} strokeWidth={grupoActivo ? 2.5 : 2} />
+                            <span className="flex-1 text-left">{item.name}</span>
+                            <ChevronDown className={`w-4 h-4 transition-transform ${produccionOpen ? "rotate-180" : ""}`} />
+                          </button>
+                          {produccionOpen && (
+                            <div id="submenu-produccion" className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
+                              {childrenVisibles.map((child) => {
+                                const childActive = rutaHijaActiva(child);
+                                const ChildIcon = child.icon;
+                                return (
+                                  <Link
+                                    key={child.name}
+                                    to={{ pathname: child.path, search: child.search || "" }}
+                                    className={`flex items-center px-3 py-2 rounded-lg transition-colors font-bold text-sm ${
+                                      childActive ? "text-orange-400 bg-white/5" : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                    }`}
+                                  >
+                                    <ChildIcon className="w-4 h-4 mr-3" />
+                                    {child.name}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
                     const isActive = location.pathname.startsWith(item.path);
                     const Icon = item.icon;
                     return (
