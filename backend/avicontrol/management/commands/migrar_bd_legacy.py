@@ -193,6 +193,10 @@ class Command(BaseCommand):
 
     def _extraer(self, tablas):
         datos = {}
+        cliente_columnas = self._columnas("cliente")
+        producto_columnas = self._columnas("producto")
+        cliente_usuario = "usuario_id" if "usuario_id" in cliente_columnas else "NULL AS usuario_id"
+        producto_categoria = "categoria" if "categoria" in producto_columnas else "calidad AS categoria"
         consultas = {
             "granja": "SELECT id, nombre, ubicacion, telefono, activo, creado_en FROM granja ORDER BY id",
             "usuario": (
@@ -202,11 +206,7 @@ class Command(BaseCommand):
             ),
             "cliente": (
                 "SELECT id, nombres, apellidos, dni, telefono, email, direccion, "
-<<<<<<< HEAD
-                "creado_en, usuario_id FROM cliente ORDER BY id"
-=======
-                "creado_en, NULL::integer AS usuario_id FROM cliente ORDER BY id"
->>>>>>> b674335 (creacion de segundo admin)
+                f"creado_en, {cliente_usuario} FROM cliente ORDER BY id"
             ),
             "galpon": (
                 "SELECT id, codigo, capacidad_aves, activo, creado_en, granja_id "
@@ -222,11 +222,7 @@ class Command(BaseCommand):
                 "FROM produccion ORDER BY id"
             ),
             "producto": (
-<<<<<<< HEAD
-                "SELECT id, nombre, presentacion, categoria, precio_unitario, stock, "
-=======
-                "SELECT id, nombre, presentacion, calidad AS categoria, precio_unitario, stock, "
->>>>>>> b674335 (creacion de segundo admin)
+                f"SELECT id, nombre, presentacion, {producto_categoria}, precio_unitario, stock, "
                 "stock_minimo, activo, creado_en FROM producto ORDER BY id"
             ),
             "insumo": (
@@ -302,9 +298,6 @@ class Command(BaseCommand):
 
         granja_base = granjas[min(granjas)] if granjas else None
         if granja_base is None:
-<<<<<<< HEAD
-            raise ValueError("La base legacy no tiene granjas; no se puede continuar.")
-=======
             nombre_granja = (
                 datos["configuracion_tienda"][0].get("nombre_granja")
                 if datos["configuracion_tienda"] else "Granja Avícola AVICONTROL"
@@ -318,7 +311,6 @@ class Command(BaseCommand):
                 activo=True,
             )
             granjas[granja_base.pk] = granja_base
->>>>>>> b674335 (creacion de segundo admin)
 
         roles = {}
         for codigo, nombre, descripcion in ROLES:

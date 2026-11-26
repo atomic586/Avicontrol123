@@ -156,6 +156,26 @@ class Cliente(models.Model):
         return "cliente"
 
 
+class ClienteActivacion(models.Model):
+    """Código temporal para habilitar o recuperar el acceso de un cliente."""
+
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.CASCADE, related_name="activaciones_login"
+    )
+    codigo_hash = models.CharField(max_length=255)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    expira_en = models.DateTimeField()
+    usado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "cliente_activacion"
+        ordering = ["-creado_en"]
+
+    def __str__(self):
+        return f"Activación de cliente {self.cliente_id}"
+
+
 # ============================================================
 # 4. GALPÓN
 # ============================================================

@@ -6,6 +6,7 @@ import {
   Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag, BarChart2, Home, Bird, ClipboardList, Pill
 } from "lucide-react";
 import { useState } from "react";
+import ThemeToggle from "./ThemeToggle";
 import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 
@@ -186,7 +187,8 @@ export default function Layout({ children }) {
           </div>
           
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-brand-500 relative bg-white rounded-full shadow-sm border border-gray-100 transition-colors">
+            <ThemeToggle />
+            <button className="p-2 text-gray-400 hover:text-brand-500 relative bg-white rounded-full shadow-sm border border-gray-100">
               <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
             </button>
@@ -207,9 +209,12 @@ export default function Layout({ children }) {
             <span className="text-2xl">🐔</span>
             <span className="text-lg font-black text-brand-600 tracking-tight">AVICONTROL</span>
           </div>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-gray-600 bg-gray-50 rounded-lg">
-            <Menu className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-gray-600 bg-gray-50 rounded-lg">
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 max-w-[1400px] mx-auto w-full">

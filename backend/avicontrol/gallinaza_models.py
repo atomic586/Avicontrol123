@@ -9,8 +9,15 @@ from .models import Cliente, Granja, Usuario
 
 
 class ProductoGallinaza(models.Model):
+    TIPOS = [
+        ("fresco", "Fresco"),
+        ("en_tratamiento", "En tratamiento"),
+        ("seco", "Seco"),
+        ("listo", "Listo para vender"),
+    ]
     granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="productos_gallinaza")
     nombre = models.CharField(max_length=120)
+    tipo = models.CharField(max_length=20, choices=TIPOS, default="listo")
     unidad_base = models.CharField(max_length=2, default="kg", editable=False)
     precio_bulto = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal("0"))])
     precio_kg = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal("0"))])

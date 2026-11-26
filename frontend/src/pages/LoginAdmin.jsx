@@ -4,6 +4,7 @@ import { useMutation } from "@apollo/client/react";
 import { Shield, ArrowLeft } from "lucide-react";
 import { LOGIN_MUTATION } from "../graphql/auth";
 import { useAuth } from "../auth/AuthContext";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function LoginAdmin() {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ export default function LoginAdmin() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="card max-w-md w-full">
+        <div className="flex justify-end mb-2"><ThemeToggle /></div>
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 mb-3">
             <Shield className="w-7 h-7 text-brand-600" />

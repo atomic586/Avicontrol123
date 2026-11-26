@@ -1,0 +1,265 @@
+.huevo-mascota {
+  position: relative;
+  display: grid;
+  width: 132px;
+  height: 142px;
+  margin: 0 auto 0.5rem;
+  place-items: center;
+  isolation: isolate;
+}
+
+.huevo-mascota::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 18%;
+  bottom: 10px;
+  width: 64%;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--huevo-halo, radial-gradient(ellipse, rgba(245, 158, 11, 0.34), transparent 72%));
+  filter: blur(13px);
+  opacity: 0.58;
+  transform: scale(0.9);
+  animation: huevo-luz-respirar 3.2s ease-in-out infinite;
+  transition: opacity 220ms ease, filter 220ms ease;
+  pointer-events: none;
+}
+
+.huevo-mascota__svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.huevo-mascota__shadow {
+  fill: #67513d;
+  opacity: 0.12;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: huevo-shadow 3.2s ease-in-out infinite;
+}
+
+.huevo-mascota__body {
+  transform-box: fill-box;
+  transform-origin: 50% 88%;
+  animation: huevo-respirar 3.2s ease-in-out infinite;
+}
+
+.huevo-mascota__shell-back,
+.huevo-mascota__lower-shell,
+.huevo-mascota__lid {
+  fill: url(#huevo-shell);
+}
+
+.huevo-mascota__outline {
+  fill: none;
+  stroke: #dfd2c0;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.huevo-mascota__seam {
+  fill: none;
+  stroke: #d8c6ad;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.huevo-mascota__shine {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.78;
+}
+
+.huevo-mascota__lid {
+  transform-box: fill-box;
+  transform-origin: 82% 90%;
+}
+
+.huevo-mascota__chick {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.huevo-mascota--email .huevo-mascota__body {
+  animation: huevo-balanceo 700ms ease-in-out infinite;
+}
+
+.huevo-mascota--password .huevo-mascota__body {
+  animation: huevo-temblor 115ms ease-in-out infinite;
+}
+
+.huevo-mascota--success .huevo-mascota__body {
+  animation: huevo-alegria 700ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.huevo-mascota--success .huevo-mascota__lid {
+  animation: huevo-asomarse 760ms ease-in-out both;
+}
+
+.huevo-mascota--success .huevo-mascota__chick {
+  animation: pollito-asomarse 760ms ease-in-out both;
+}
+
+.huevo-mascota--success .huevo-mascota__seam {
+  animation: huevo-costura 760ms ease-in-out both;
+}
+
+.huevo-mascota--success .huevo-mascota__shadow {
+  animation: huevo-salto-sombra 700ms ease-in-out both;
+}
+
+.huevo-mascota--pedidos .huevo-mascota__lid {
+  transform: translateY(-10px) rotate(-6deg);
+}
+
+.huevo-mascota--pedidos .huevo-mascota__chick {
+  opacity: 1;
+  transform: translateY(-8px) scale(0.96);
+}
+
+.huevo-mascota--pedidos .huevo-mascota__seam {
+  opacity: 0.8;
+}
+
+.huevo-mascota--loading::before {
+  background: radial-gradient(ellipse, rgba(59, 130, 246, 0.6), transparent 72%);
+  opacity: 0.78;
+  animation: huevo-luz-pulsar 680ms ease-in-out infinite;
+}
+
+.huevo-mascota--error::before {
+  background: radial-gradient(ellipse, rgba(239, 68, 68, 0.66), transparent 72%);
+  opacity: 0.82;
+  animation: huevo-luz-error 760ms ease-in-out 2;
+}
+
+.huevo-mascota--success::before {
+  background: radial-gradient(ellipse, rgba(34, 197, 94, 0.7), transparent 72%);
+  opacity: 0.88;
+  animation: huevo-luz-success 760ms ease-out both;
+}
+
+@keyframes huevo-respirar {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.012, 0.992); }
+}
+
+@keyframes huevo-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.12; }
+  50% { transform: scaleX(0.94); opacity: 0.09; }
+}
+
+@keyframes huevo-balanceo {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@keyframes huevo-temblor {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-1px) rotate(-0.6deg); }
+  75% { transform: translateX(1px) rotate(0.6deg); }
+}
+
+@keyframes huevo-alegria {
+  0% { transform: translateY(0) rotate(0) scale(1); }
+  28% { transform: translateY(-10px) rotate(-5deg) scale(1.04); }
+  58% { transform: translateY(1px) rotate(4deg) scale(0.99, 1.02); }
+  78% { transform: translateY(-4px) rotate(-2deg) scale(1.01); }
+  100% { transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes huevo-asomarse {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  22%, 67% { transform: translateY(-13px) rotate(-7deg); }
+}
+
+@keyframes pollito-asomarse {
+  0%, 14%, 100% { opacity: 0; transform: translateY(8px) scale(0.82); }
+  28%, 67% { opacity: 1; transform: translateY(-2px) scale(1); }
+  82% { opacity: 0.8; transform: translateY(0) scale(0.98); }
+}
+
+@keyframes huevo-costura {
+  0%, 14%, 100% { opacity: 0; }
+  22%, 67% { opacity: 0.9; }
+}
+
+@keyframes huevo-salto-sombra {
+  0%, 100% { transform: scaleX(1); opacity: 0.12; }
+  28%, 58% { transform: scaleX(0.82); opacity: 0.07; }
+}
+
+@keyframes huevo-luz-respirar {
+  0%, 100% { transform: scale(0.88); opacity: 0.46; }
+  50% { transform: scale(1); opacity: 0.62; }
+}
+
+@keyframes huevo-luz-pulsar {
+  0%, 100% { transform: scale(0.82); opacity: 0.48; }
+  50% { transform: scale(1.06); opacity: 0.86; }
+}
+
+@keyframes huevo-luz-error {
+  0%, 100% { transform: scale(0.9); opacity: 0.66; }
+  50% { transform: scale(1.12); opacity: 0.96; }
+}
+
+@keyframes huevo-luz-success {
+  0% { transform: scale(0.78); opacity: 0.24; }
+  28%, 64% { transform: scale(1.12); opacity: 0.96; }
+  100% { transform: scale(0.94); opacity: 0.48; }
+}
+
+.huevo-mascota--compacto {
+  width: 66px;
+  height: 72px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.huevo-mascota.huevo-mascota--compacto {
+  width: 66px;
+  height: 72px;
+}
+
+@media (max-width: 480px) {
+  .huevo-mascota {
+    width: 116px;
+    height: 126px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .huevo-mascota__body,
+  .huevo-mascota__shadow,
+  .huevo-mascota::before,
+  .huevo-mascota--email .huevo-mascota__body,
+  .huevo-mascota--password .huevo-mascota__body,
+  .huevo-mascota--success .huevo-mascota__body,
+  .huevo-mascota--success .huevo-mascota__lid,
+  .huevo-mascota--success .huevo-mascota__chick,
+  .huevo-mascota--success .huevo-mascota__seam,
+  .huevo-mascota--success .huevo-mascota__shadow {
+    animation: none;
+  }
+
+  .huevo-mascota--error::before,
+  .huevo-mascota--loading::before,
+  .huevo-mascota--success::before {
+    animation: none;
+  }
+
+  .huevo-mascota--success .huevo-mascota__lid { transform: translateY(-13px) rotate(-7deg); }
+  .huevo-mascota--success .huevo-mascota__chick { opacity: 1; }
+  .huevo-mascota--success .huevo-mascota__seam { opacity: 0.9; }
+}

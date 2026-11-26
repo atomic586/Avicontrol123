@@ -27,6 +27,7 @@ import MedicamentosAlimento from "./pages/MedicamentosAlimento";
 import GalponDetalle from "./pages/GalponDetalle"; // <-- NUEVO
 import LoteDetalle from "./pages/LoteDetalle";     // <-- NUEVO
 import Granjas from "./pages/Granjas";             // <-- VOLVEMOS A USAR GRANJAS DIRECTAMENTE
+import { ThemeProvider } from "./theme/ThemeContext";
 
 function RutaAdmin({ children }) {
   const { usuario, cargando } = useAuth();
@@ -95,7 +96,9 @@ export default function App() {
     <AuthProvider>
       <ClienteAuthProvider>
         <GranjaProvider>
-          <Rutas />
+          <ThemeProvider>
+            <Rutas />
+          </ThemeProvider>
         </GranjaProvider>
       </ClienteAuthProvider>
     </AuthProvider>

@@ -32,3 +32,63 @@ body {
   .badge-danger { @apply bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
   .badge-info { @apply bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
 }
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.theme-toggle:hover { background: #fff7ed; color: #b45309; }
+
+html[data-theme="dark"] body { background-color: #111827; color: #e5e7eb; }
+html[data-theme="dark"] .bg-background,
+html[data-theme="dark"] .bg-hueso { background-color: #111827; }
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-surface { background-color: #1f2937; }
+html[data-theme="dark"] .bg-gray-50 { background-color: #263244; }
+html[data-theme="dark"] .bg-gray-100 { background-color: #374151; }
+html[data-theme="dark"] .text-dark,
+html[data-theme="dark"] .text-gray-900,
+html[data-theme="dark"] .text-gray-800,
+html[data-theme="dark"] .text-gray-700 { color: #f3f4f6; }
+html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-gray-500 { color: #cbd5e1; }
+html[data-theme="dark"] .text-gray-400 { color: #9ca3af; }
+html[data-theme="dark"] .border-gray-100,
+html[data-theme="dark"] .border-gray-200,
+html[data-theme="dark"] .border-gray-300 { border-color: #374151; }
+html[data-theme="dark"] .input-field,
+html[data-theme="dark"] select,
+html[data-theme="dark"] input {
+  border-color: #475569;
+  background-color: #111827;
+  color: #f9fafb;
+}
+html[data-theme="dark"] input::placeholder { color: #9ca3af; }
+html[data-theme="dark"] .bg-brand-50 { background-color: #422f13; }
+html[data-theme="dark"] .text-brand-700,
+html[data-theme="dark"] .text-brand-800 { color: #fbbf58; }
+html[data-theme="dark"] .border-brand-100 { border-color: #6b4b1b; }
+html[data-theme="dark"] .theme-toggle {
+  border-color: #475569;
+  background-color: #1f2937;
+  color: #e5e7eb;
+}
+html[data-theme="dark"] .theme-toggle:hover { background-color: #293548; color: #fde68a; }
+html[data-theme="dark"] .login-cliente {
+  background: radial-gradient(ellipse at 50% 30%, #26364b 0%, #172131 46%, #111827 100%);
+}
+html[data-theme="dark"] [role="alert"] {
+  border-color: #7f1d1d;
+  background-color: #451a1a;
+  color: #fecaca;
+}

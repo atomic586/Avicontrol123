@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useClienteAuth } from "../auth/ClienteAuthContext";
 import { LogOut, ShoppingCart, User } from "lucide-react";
+import ThemeToggle from "./ThemeToggle";
 
 export default function LayoutPublico({ children }) {
   const { cliente, cerrarSesion } = useClienteAuth();
@@ -30,6 +31,7 @@ export default function LayoutPublico({ children }) {
           </nav>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {cliente ? (
               <>
                 <span className="text-sm text-gray-600 hidden sm:inline">

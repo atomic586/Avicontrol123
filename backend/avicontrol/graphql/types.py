@@ -412,6 +412,7 @@ class ProductoGallinazaType:
     id: strawberry.ID
     granja_id: strawberry.ID
     nombre: str
+    tipo: str
     unidad_base: str
     precio_bulto: Decimal
     precio_kg: Decimal

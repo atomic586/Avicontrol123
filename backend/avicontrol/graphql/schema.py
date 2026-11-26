@@ -7,19 +7,21 @@ import re
 import strawberry
 import strawberry_django
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+import secrets
 from django.db import transaction
 from django.db.models import Sum, Count, Q, F
 from django.utils import timezone
 from django.contrib.auth.hashers import check_password, make_password
+from django.core.mail import send_mail
 from strawberry.types import Info
 
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from avicontrol.models import (
-    Usuario, Cliente, Granja, Galpon, Lote,
+    Usuario, Cliente, ClienteActivacion, Granja, Galpon, Lote,
     Produccion, Producto, Insumo, Pedido, DetallePedido, Venta,
     GeneracionAbono, ConfiguracionTienda,
     Proveedor, Compra, DetalleCompra, Almacen, MovimientoStock,
@@ -55,6 +57,13 @@ class DetalleInput:
     producto_id: strawberry.ID
     cantidad: int
 
+
+@strawberry.input
+class LineaAbonoPedidoInput:
+    producto_id: strawberry.ID
+    unidad_vendida: str
+    cantidad: Decimal
+
 @strawberry.input
 class DetalleCompraInput:
     insumo_id: strawberry.ID
@@ -74,6 +83,13 @@ class LoginClientePayload:
     access: str
     refresh: str
     cliente: ClienteType
+
+
+@strawberry.type
+class PedidoClientePayload:
+    pedido_huevos: Optional[PedidoCompletoType]
+    pedido_abono: Optional[VentaGallinazaType]
+    total: Decimal
 
 
 # ============================================================
@@ -157,6 +173,10 @@ class EstadisticasGranjaType:
     total_clientes: int
     produccion_mes_huevos: int
     ingresos_mes: Decimal
+
+
+def _digitos(valor: str) -> str:
+    return re.sub(r"\D", "", valor or "")
 
 
 @strawberry.type
@@ -476,6 +496,18 @@ class Query:
             .order_by("-fecha_pedido", "-id")
         )
 
+    @strawberry.field
+    def mis_ventas_abono(self, info: Info) -> List[VentaGallinazaType]:
+        cliente = _cliente_desde_request(info.context.request)
+        if not cliente:
+            raise ValueError("Sesión de cliente no válida o expirada.")
+        return list(
+            VentaGallinaza.objects.filter(cliente=cliente)
+            .select_related("cliente")
+            .prefetch_related("detalles__producto", "pagos")
+            .order_by("-fecha", "-id")
+        )
+
     # ---- DASHBOARD ----
     @strawberry.field
     def dashboard(self) -> DashboardType:
@@ -566,8 +598,13 @@ class Query:
     # MÓDULO DE GALLINAZA (ABONO)
     # ============================================================
     @strawberry.field
-    def productos_gallinaza(self, info: Info, solo_activos: bool = False) -> List[ProductoGallinazaType]:
-        granja = _granja_por_defecto(info)
+    def productos_gallinaza(
+        self, info: Info, solo_activos: bool = False,
+        granja_id: Optional[strawberry.ID] = None,
+    ) -> List[ProductoGallinazaType]:
+        granja = Granja.objects.filter(pk=granja_id, activo=True).first() if granja_id else _granja_por_defecto(info)
+        if not granja:
+            return []
         qs = ProductoGallinaza.objects.filter(granja=granja)
         if solo_activos:
             qs = qs.filter(activo=True)
@@ -615,6 +652,100 @@ class Query:
 # ============================================================
 @strawberry.type
 class Mutation:
+
+    @strawberry.mutation
+    def crear_pedido_cliente(
+        self, info: Info,
+        granja_id: Optional[strawberry.ID] = None,
+        huevos: Optional[List[DetalleInput]] = None,
+        abono: Optional[List[LineaAbonoPedidoInput]] = None,
+        nombres: Optional[str] = None,
+        apellidos: Optional[str] = None,
+        dni: Optional[str] = None,
+        telefono: Optional[str] = None,
+        email: Optional[str] = None,
+        direccion: Optional[str] = None,
+    ) -> PedidoClientePayload:
+        """Registra el carrito público en los flujos actuales de huevos y abono."""
+        huevos = huevos or []
+        abono = abono or []
+        if not huevos and not abono:
+            raise ValueError("Agrega al menos un producto al pedido.")
+
+        cliente = _cliente_desde_request(info.context.request)
+        if cliente:
+            granja = cliente.granja
+            if granja_id and str(granja.pk) != str(granja_id):
+                raise ValueError("Solo puedes pedir productos de tu granja.")
+        else:
+            if not granja_id or not all([nombres, apellidos, dni, telefono]):
+                raise ValueError("Inicia sesión o completa tus datos de contacto.")
+            granja = Granja.objects.filter(pk=granja_id, activo=True).first()
+            if not granja:
+                raise ValueError("La granja seleccionada no está disponible.")
+            cliente = Cliente.objects.filter(granja=granja, dni=dni.strip()).first()
+            if cliente and (cliente.telefono != telefono.strip() or not cliente.activo):
+                raise ValueError("Revisa tus datos de contacto o inicia sesión en tu cuenta.")
+            if not cliente:
+                cliente = Cliente.objects.create(
+                    granja=granja, nombres=nombres.strip(), apellidos=apellidos.strip(),
+                    dni=dni.strip(), telefono=telefono.strip(),
+                    email=(email or "").strip() or None,
+                    direccion=(direccion or "").strip(), activo=True,
+                )
+
+        if not granja.activo:
+            raise ValueError("Esta granja no está recibiendo pedidos por el momento.")
+
+        fecha_pedido = timezone.localdate()
+        pedido = None
+        venta_abono = None
+        total = Decimal("0")
+        with transaction.atomic():
+            if huevos:
+                pedido = Pedido.objects.create(
+                    granja=granja, cliente=cliente, fecha_pedido=fecha_pedido,
+                    estado="pendiente",
+                )
+                for linea in huevos:
+                    producto = Producto.objects.select_for_update().filter(
+                        pk=linea.producto_id, granja=granja, activo=True, tipo="huevo",
+                    ).first()
+                    if not producto:
+                        raise ValueError("Uno de los productos de huevo ya no está disponible.")
+                    cantidad = Decimal(linea.cantidad)
+                    if cantidad <= 0 or producto.stock < cantidad:
+                        raise ValueError(f"Stock insuficiente para '{producto.nombre}'.")
+                    tarifa = TarifaProducto.objects.filter(
+                        producto=producto, activo=True, fecha_inicio__lte=fecha_pedido,
+                    ).filter(
+                        Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=fecha_pedido)
+                    ).order_by("-fecha_inicio").first()
+                    DetallePedido.objects.create(
+                        pedido=pedido, producto=producto, cantidad=cantidad,
+                        precio_unitario=tarifa.precio if tarifa else producto.precio_unitario,
+                    )
+                pedido.recalcular_total()
+                total += pedido.total
+
+            if abono:
+                lineas_abono = [{
+                    "producto_id": linea.producto_id,
+                    "unidad_vendida": linea.unidad_vendida,
+                    "cantidad": linea.cantidad,
+                } for linea in abono]
+                venta_abono = registrar_venta(
+                    granja=granja, fecha=fecha_pedido, lineas=lineas_abono,
+                    metodo_pago="credito", cliente_id=cliente.pk,
+                    monto_recibido=Decimal("0"), usuario=None,
+                )
+                total += venta_abono.total
+
+        if pedido:
+            pedido = Pedido.objects.select_related("cliente").prefetch_related("detalles__producto").get(pk=pedido.pk)
+        if venta_abono:
+            venta_abono = VentaGallinaza.objects.select_related("cliente").prefetch_related("detalles__producto", "pagos").get(pk=venta_abono.pk)
+        return PedidoClientePayload(pedido_huevos=pedido, pedido_abono=venta_abono, total=total)
 
     # ---- AUTENTICACIÓN ----
     @strawberry.mutation
@@ -739,12 +870,14 @@ class Mutation:
     # ---- AUTENTICACIÓN DE CLIENTES ----
     @strawberry.mutation
     def login_cliente(self, email: str, password: str) -> LoginClientePayload:
-        cliente = Cliente.objects.filter(
-            email__iexact=email, activo=True, puede_loguearse=True
-        ).select_related("granja").first()
-        if not cliente or not cliente.password_hash:
-            raise ValueError("Correo o contraseña inválidos.")
-        if not check_password(password, cliente.password_hash):
+        clientes = Cliente.objects.filter(
+            email__iexact=email.strip(), activo=True, puede_loguearse=True
+        ).select_related("granja").order_by("id")
+        cliente = next(
+            (c for c in clientes if c.password_hash and check_password(password, c.password_hash)),
+            None,
+        )
+        if not cliente:
             raise ValueError("Correo o contraseña inválidos.")
         if cliente.granja and not cliente.granja.activo:
             raise ValueError(
@@ -757,6 +890,97 @@ class Mutation:
         )
 
     @strawberry.mutation
+    def solicitar_activacion_cliente(
+        self, granja_id: strawberry.ID, email: str, dni: str, telefono: str,
+    ) -> bool:
+        """Envía un código temporal al email ya guardado en el perfil del cliente."""
+        email_limpio = email.strip()
+        clientes = Cliente.objects.filter(
+            granja_id=granja_id, email__iexact=email_limpio, dni=dni.strip(), activo=True,
+        )
+        cliente = next(
+            (c for c in clientes if _digitos(c.telefono) == _digitos(telefono)),
+            None,
+        )
+        if not cliente:
+            # Respuesta uniforme: no revelar si el correo pertenece a una cuenta.
+            return True
+
+        ahora = timezone.now()
+        activacion_reciente = ClienteActivacion.objects.filter(
+            cliente=cliente, usado_en__isnull=True,
+            creado_en__gte=ahora - timedelta(seconds=60),
+        ).exists()
+        if activacion_reciente:
+            return True
+
+        ClienteActivacion.objects.filter(cliente=cliente).delete()
+        codigo = f"{secrets.randbelow(1_000_000):06d}"
+        activacion = ClienteActivacion.objects.create(
+            cliente=cliente,
+            codigo_hash=make_password(codigo),
+            expira_en=ahora + timedelta(minutes=10),
+        )
+        try:
+            enviados = send_mail(
+                subject="Código para activar tu cuenta de AVICONTROL",
+                message=(
+                    f"Tu código de activación es: {codigo}\n\n"
+                    "Vence en 10 minutos. Si no solicitaste este código, ignora este mensaje."
+                ),
+                from_email=None,
+                recipient_list=[cliente.email],
+                fail_silently=False,
+            )
+            if not enviados:
+                raise RuntimeError("El correo no fue aceptado por el backend de email.")
+        except Exception as exc:
+            activacion.delete()
+            raise ValueError("No se pudo enviar el código. Inténtalo más tarde.") from exc
+        return True
+
+    @strawberry.mutation
+    def confirmar_activacion_cliente(
+        self, email: str, codigo: str, password: str,
+    ) -> LoginClientePayload:
+        if len(password) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres.")
+        email_limpio = email.strip()
+        ahora = timezone.now()
+        payload = None
+        with transaction.atomic():
+            activaciones = ClienteActivacion.objects.filter(
+                cliente__email__iexact=email_limpio, cliente__activo=True,
+                usado_en__isnull=True, expira_en__gt=ahora, intentos__lt=5,
+            ).select_for_update().select_related("cliente")
+            candidatos = list(activaciones[:10])
+            activacion = next(
+                (a for a in candidatos if check_password(codigo.strip(), a.codigo_hash)),
+                None,
+            )
+            if not activacion:
+                if candidatos:
+                    intentos = candidatos[0]
+                    intentos.intentos += 1
+                    if intentos.intentos >= 5:
+                        intentos.usado_en = ahora
+                    intentos.save(update_fields=["intentos", "usado_en"])
+            else:
+                cliente = activacion.cliente
+                cliente.password_hash = make_password(password)
+                cliente.puede_loguearse = True
+                cliente.save(update_fields=["password_hash", "puede_loguearse"])
+                activacion.usado_en = ahora
+                activacion.save(update_fields=["usado_en"])
+                tokens = _tokens_cliente(cliente)
+                payload = LoginClientePayload(
+                    access=tokens["access"], refresh=tokens["refresh"], cliente=cliente
+                )
+        if payload is None:
+            raise ValueError("El código es inválido o expiró.")
+        return payload
+
+    @strawberry.mutation
     def registro_cliente(
         self, granja_id: strawberry.ID, nombres: str, apellidos: str,
         dni: str, telefono: str, email: str, password: str,
@@ -765,10 +989,16 @@ class Mutation:
             raise ValueError("La contraseña debe tener al menos 8 caracteres.")
         if not Granja.objects.filter(pk=granja_id).exists():
             raise ValueError("Granja no encontrada.")
+        email = email.strip().lower()
+        dni = dni.strip()
         if Cliente.objects.filter(email__iexact=email).exists():
-            raise ValueError("Ya existe una cuenta con ese correo.")
+            raise ValueError(
+                "Ese correo ya está asociado a un cliente. Usa «Activar cuenta» para crear tu acceso."
+            )
         if Cliente.objects.filter(granja_id=granja_id, dni=dni).exists():
-            raise ValueError("Ya existe un cliente con ese DNI en esta granja.")
+            raise ValueError(
+                "Ya existe un cliente con ese DNI. Si es tu perfil, activa la cuenta existente."
+            )
         cliente = Cliente.objects.create(
             granja_id=granja_id, nombres=nombres, apellidos=apellidos,
             dni=dni, telefono=telefono, email=email, direccion="",
@@ -1534,6 +1764,7 @@ class Mutation:
     def guardar_producto_gallinaza(
         self, info: Info, id: Optional[strawberry.ID] = None,
         nombre: str = "", unidad_base: str = "kg",
+        tipo: str = "listo",
         precio_bulto: Decimal = Decimal("0"), precio_kg: Decimal = Decimal("0"),
         precio_tonelada: Decimal = Decimal("0"),
         stock_minimo_kg: Decimal = Decimal("0"), activo: bool = True,
@@ -1546,6 +1777,7 @@ class Mutation:
                 raise ValueError("Producto de gallinaza no encontrado.")
             producto.nombre = nombre
             producto.unidad_base = unidad_base
+            producto.tipo = tipo
             producto.precio_bulto = precio_bulto
             producto.precio_kg = precio_kg
             producto.precio_tonelada = precio_tonelada
@@ -1554,7 +1786,7 @@ class Mutation:
             producto.save()
             return producto
         return ProductoGallinaza.objects.create(
-            granja=granja, nombre=nombre, unidad_base=unidad_base,
+            granja=granja, nombre=nombre, unidad_base=unidad_base, tipo=tipo,
             precio_bulto=precio_bulto, precio_kg=precio_kg,
             precio_tonelada=precio_tonelada,
             stock_minimo_kg=stock_minimo_kg, activo=activo,
@@ -1567,27 +1799,32 @@ class Mutation:
     ) -> EntradaGallinazaType:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_almacen"])
         user = usuario_desde_request(info.context.request)
+        granja = _granja_por_defecto(info)
         entrada = registrar_entrada(
-            producto_id=producto_id, fecha=fecha, cantidad_kg=cantidad_kg,
-            origen=origen, observaciones=observaciones,
-            usuario_id=user.id if user else None,
+            granja=granja, producto_id=producto_id, fecha=fecha, cantidad_kg=cantidad_kg,
+            origen=origen, observaciones=observaciones, usuario=user,
         )
         return entrada
 
     @strawberry.mutation
     def registrar_venta_gallinaza(
         self, info: Info, fecha: date,
-        detalles: List[DetalleInput],
+        detalles: List[LineaAbonoPedidoInput],
         cliente_id: Optional[strawberry.ID] = None,
         metodo_pago: str = "efectivo",
         monto_recibido: Decimal = Decimal("0"),
     ) -> VentaGallinazaType:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_ventas"])
         user = usuario_desde_request(info.context.request)
+        granja = _granja_por_defecto(info)
+        lineas = [
+            {"producto_id": d.producto_id, "unidad_vendida": d.unidad_vendida, "cantidad": d.cantidad}
+            for d in detalles
+        ]
         venta = registrar_venta(
-            fecha=fecha, detalles=detalles, cliente_id=cliente_id,
+            granja=granja, fecha=fecha, lineas=lineas, cliente_id=cliente_id,
             metodo_pago=metodo_pago, monto_recibido=monto_recibido,
-            usuario_id=user.id if user else None,
+            usuario=user,
         )
         return venta
 
@@ -1599,8 +1836,8 @@ class Mutation:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_ventas"])
         user = usuario_desde_request(info.context.request)
         pago = registrar_pago(
-            venta_id=venta_id, monto=monto, metodo=metodo,
-            usuario_id=user.id if user else None,
+            granja=_granja_por_defecto(info), venta_id=venta_id,
+            monto=monto, metodo=metodo, usuario=user,
         )
         return pago
 

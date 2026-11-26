@@ -9,6 +9,7 @@ import {
 } from "../graphql/pedidos";
 import { useAuth } from "../auth/AuthContext";
 import Modal from "../components/Modal";
+import HuevoMascota from "../components/HuevoMascota";
 
 const CLIENTES_QUERY = gql`
   query { clientes { id nombres apellidos dni } }
@@ -110,9 +111,12 @@ export default function Pedidos() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
-            <ShoppingCart className="w-8 h-8 text-brand-500" /> Pedidos
-          </h1>
+          <div className="flex items-center gap-2">
+            <HuevoMascota phase="pedidos" className="huevo-mascota--compacto" />
+            <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
+              <ShoppingCart className="w-8 h-8 text-brand-500" /> Pedidos
+            </h1>
+          </div>
           <p className="text-gray-500 text-base mt-1 font-medium">
             Organiza cada entrega desde la solicitud hasta el cobro
           </p>
