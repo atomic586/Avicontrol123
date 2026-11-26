@@ -12,13 +12,9 @@ from avicontrol.models import (
     Granja, Rol, Usuario, Cliente, Galpon, Lote, Produccion,
     Producto, Insumo, GeneracionAbono, Almacen, MovimientoStock,
     Pedido, DetallePedido, Venta, Auditoria, ConfiguracionTienda,
-    Proveedor, Compra, DetalleCompra,
+    Proveedor, Compra, DetalleCompra, MovimientoAve,
+    ConsumoInsumo, MedicamentoEnAlimento, TarifaProducto,
 )
-from avicontrol.gallinaza_models import (
-    ProductoGallinaza, EntradaGallinaza, VentaGallinaza,
-    DetalleVentaGallinaza, PagoGallinaza, MovimientoGallinaza,
-)
-
 
 @strawberry_django.type(Granja)
 class GranjaType:
@@ -95,6 +91,10 @@ class GalponType:
     activo: bool
     creado_en: datetime
 
+    @strawberry.field
+    def aves_actuales(self) -> int:
+        return self.aves_actuales
+
 
 @strawberry_django.type(Lote)
 class LoteType:
@@ -104,8 +104,35 @@ class LoteType:
     codigo: str
     raza: str
     fecha_ingreso: date
+    fecha_nacimiento: Optional[date]
     cantidad_aves: int
     estado: str
+    etapa: str
+    creado_en: datetime
+
+    @strawberry.field
+    def aves_actuales(self) -> int:
+        return self.aves_actuales
+
+    @strawberry.field
+    def porcentaje_mortalidad(self) -> float:
+        return self.porcentaje_mortalidad
+
+    @strawberry.field
+    def edad_semanas(self) -> Optional[int]:
+        return self.edad_semanas
+
+
+@strawberry_django.type(MovimientoAve)
+class MovimientoAveType:
+    id: strawberry.ID
+    lote_id: strawberry.ID
+    galpon_id: strawberry.ID
+    tipo: str
+    cantidad: int
+    fecha: date
+    motivo: str
+    lote_destino_id: Optional[strawberry.ID]
     creado_en: datetime
 
 
@@ -176,104 +203,6 @@ class GeneracionAbonoType:
     responsable: str
     observaciones: str
     creado_en: datetime
-
-
-@strawberry_django.type(ProductoGallinaza)
-class ProductoGallinazaType:
-    id: strawberry.ID
-    granja_id: strawberry.ID
-    nombre: str
-    unidad_base: str
-    precio_bulto: Decimal
-    precio_kg: Decimal
-    precio_tonelada: Decimal
-    stock_actual_kg: Decimal
-    stock_minimo_kg: Decimal
-    activo: bool
-    created_at: datetime
-    updated_at: datetime
-
-
-@strawberry_django.type(EntradaGallinaza)
-class EntradaGallinazaType:
-    id: strawberry.ID
-    producto_id: strawberry.ID
-    fecha: date
-    cantidad_kg: Decimal
-    origen: str
-    observaciones: str
-    usuario_id: Optional[strawberry.ID]
-    created_at: datetime
-
-
-@strawberry_django.type(DetalleVentaGallinaza)
-class DetalleVentaGallinazaType:
-    id: strawberry.ID
-    producto_id: strawberry.ID
-    unidad_vendida: str
-    cantidad: Decimal
-    cantidad_kg: Decimal
-    precio_unitario: Decimal
-    subtotal: Decimal
-
-    @strawberry.field
-    def producto(self) -> ProductoGallinazaType:
-        return self.producto
-
-
-@strawberry_django.type(PagoGallinaza)
-class PagoGallinazaType:
-    id: strawberry.ID
-    monto: Decimal
-    fecha: datetime
-    metodo: str
-    usuario_id: Optional[strawberry.ID]
-
-
-@strawberry_django.type(VentaGallinaza)
-class VentaGallinazaType:
-    id: strawberry.ID
-    numero: int
-    granja_id: strawberry.ID
-    fecha: date
-    cliente_id: Optional[strawberry.ID]
-    total: Decimal
-    metodo_pago: str
-    estado: str
-    monto_recibido: Decimal
-    cambio: Decimal
-    usuario_id: Optional[strawberry.ID]
-    created_at: datetime
-
-    @strawberry.field
-    def detalles(self) -> List[DetalleVentaGallinazaType]:
-        return list(self.detalles.select_related("producto").all())
-
-    @strawberry.field
-    def pagos(self) -> List[PagoGallinazaType]:
-        return list(self.pagos.all())
-
-    @strawberry.field
-    def total_pagado(self) -> Decimal:
-        return self.total_pagado
-
-    @strawberry.field
-    def saldo_pendiente(self) -> Decimal:
-        return self.saldo_pendiente
-
-    @strawberry.field
-    def nombre_cliente(self) -> str:
-        return f"{self.cliente.nombres} {self.cliente.apellidos}" if self.cliente_id else "Consumidor final"
-
-
-@strawberry_django.type(MovimientoGallinaza)
-class MovimientoGallinazaType:
-    id: strawberry.ID
-    producto_id: strawberry.ID
-    tipo: str
-    cantidad_kg: Decimal
-    referencia: str
-    created_at: datetime
 
 
 @strawberry_django.type(Almacen)
@@ -431,3 +360,146 @@ class CompraCompletaType:
     estado: str
     total: Decimal
     creado_en: datetime
+
+@strawberry_django.type(ConsumoInsumo)
+class ConsumoInsumoType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    lote_id: strawberry.ID
+    insumo_id: strawberry.ID
+    fecha: date
+    cantidad: Decimal
+    observaciones: str
+    creado_en: datetime
+
+
+@strawberry_django.type(MedicamentoEnAlimento)
+class MedicamentoEnAlimentoType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    alimento_id: strawberry.ID
+    medicamento_id: strawberry.ID
+    dosis_por_kg: Decimal
+    fecha_inicio: date
+    fecha_fin: Optional[date]
+    periodo_retiro_dias: int
+    observaciones: str
+    creado_en: datetime
+
+@strawberry_django.type(TarifaProducto)
+class TarifaProductoType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    producto_id: strawberry.ID
+    tipo: str
+    nombre_temporada: str
+    precio: Decimal
+    fecha_inicio: date
+    fecha_fin: Optional[date]
+    activo: bool
+    creado_en: datetime
+
+# ============================================================
+# MÓDULO COMERCIAL DE GALLINAZA (ABONO)
+# ============================================================
+from avicontrol.gallinaza_models import (
+    ProductoGallinaza, EntradaGallinaza, VentaGallinaza,
+    DetalleVentaGallinaza, PagoGallinaza, MovimientoGallinaza,
+)
+
+@strawberry_django.type(ProductoGallinaza)
+class ProductoGallinazaType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    nombre: str
+    unidad_base: str
+    precio_bulto: Decimal
+    precio_kg: Decimal
+    precio_tonelada: Decimal
+    stock_actual_kg: Decimal
+    stock_minimo_kg: Decimal
+    activo: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+@strawberry_django.type(EntradaGallinaza)
+class EntradaGallinazaType:
+    id: strawberry.ID
+    producto_id: strawberry.ID
+    fecha: date
+    cantidad_kg: Decimal
+    origen: str
+    observaciones: str
+    usuario_id: Optional[strawberry.ID]
+    created_at: datetime
+
+
+@strawberry_django.type(DetalleVentaGallinaza)
+class DetalleVentaGallinazaType:
+    id: strawberry.ID
+    producto_id: strawberry.ID
+    unidad_vendida: str
+    cantidad: Decimal
+    cantidad_kg: Decimal
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+    @strawberry.field
+    def producto(self) -> ProductoGallinazaType:
+        return self.producto
+
+
+@strawberry_django.type(PagoGallinaza)
+class PagoGallinazaType:
+    id: strawberry.ID
+    monto: Decimal
+    fecha: datetime
+    metodo: str
+    usuario_id: Optional[strawberry.ID]
+
+
+@strawberry_django.type(VentaGallinaza)
+class VentaGallinazaType:
+    id: strawberry.ID
+    numero: int
+    granja_id: strawberry.ID
+    fecha: date
+    cliente_id: Optional[strawberry.ID]
+    total: Decimal
+    metodo_pago: str
+    estado: str
+    monto_recibido: Decimal
+    cambio: Decimal
+    usuario_id: Optional[strawberry.ID]
+    created_at: datetime
+
+    @strawberry.field
+    def detalles(self) -> List[DetalleVentaGallinazaType]:
+        return list(self.detalles.select_related("producto").all())
+
+    @strawberry.field
+    def pagos(self) -> List[PagoGallinazaType]:
+        return list(self.pagos.all())
+
+    @strawberry.field
+    def total_pagado(self) -> Decimal:
+        return self.total_pagado
+
+    @strawberry.field
+    def saldo_pendiente(self) -> Decimal:
+        return self.saldo_pendiente
+
+    @strawberry.field
+    def nombre_cliente(self) -> str:
+        return f"{self.cliente.nombres} {self.cliente.apellidos}" if self.cliente_id else "Consumidor final"
+
+
+@strawberry_django.type(MovimientoGallinaza)
+class MovimientoGallinazaType:
+    id: strawberry.ID
+    producto_id: strawberry.ID
+    tipo: str
+    cantidad_kg: Decimal
+    referencia: str
+    created_at: datetime

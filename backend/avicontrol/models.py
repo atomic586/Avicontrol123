@@ -176,6 +176,20 @@ class Galpon(models.Model):
     def __str__(self):
         return f"{self.granja.codigo} - {self.codigo}"
 
+    @property
+    def aves_actuales(self):
+        from django.db.models import Sum
+        total = 0
+        for lote in self.lotes.exclude(estado="baja"):
+            ingresos = lote.movimientos_aves.filter(
+                tipo__in=["ingreso", "traslado_entrada", "ajuste_positivo"]
+            ).aggregate(s=Sum("cantidad"))["s"] or 0
+            salidas = lote.movimientos_aves.filter(
+                tipo__in=["muerte", "venta", "traslado_salida", "descarte", "ajuste_negativo"]
+            ).aggregate(s=Sum("cantidad"))["s"] or 0
+            total += ingresos - salidas
+        return total
+
 
 # ============================================================
 # 5. LOTE
@@ -186,6 +200,12 @@ class Lote(models.Model):
         ("en_produccion", "En producción"),
         ("finalizado", "Finalizado"),
         ("baja", "Baja"),
+    ]
+    ETAPAS = [
+        ("cria", "Cría (0-6 semanas)"),
+        ("recria", "Recría (6-18 semanas)"),
+        ("postura", "Postura (18-80 semanas)"),
+        ("descarte", "Descarte (>80 semanas)"),
     ]
     RAZAS = [
         ("Hy-Line Brown", "Hy-Line Brown"),
@@ -199,8 +219,10 @@ class Lote(models.Model):
     codigo = models.CharField(max_length=40)
     raza = models.CharField(max_length=40, choices=RAZAS, default="Hy-Line Brown")
     fecha_ingreso = models.DateField()
+    fecha_nacimiento = models.DateField(null=True, blank=True)
     cantidad_aves = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     estado = models.CharField(max_length=20, choices=ESTADOS, default="activo")
+    etapa = models.CharField(max_length=20, choices=ETAPAS, default="cria")
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -212,6 +234,76 @@ class Lote(models.Model):
 
     def __str__(self):
         return f"{self.codigo} - {self.raza}"
+
+    @property
+    def aves_actuales(self):
+        from django.db.models import Sum
+        ingresos = self.movimientos_aves.filter(
+            tipo__in=["ingreso", "traslado_entrada", "ajuste_positivo"]
+        ).aggregate(total=Sum("cantidad"))["total"] or 0
+        salidas = self.movimientos_aves.filter(
+            tipo__in=["muerte", "venta", "traslado_salida", "descarte", "ajuste_negativo"]
+        ).aggregate(total=Sum("cantidad"))["total"] or 0
+        return ingresos - salidas
+
+    @property
+    def porcentaje_mortalidad(self):
+        from django.db.models import Sum
+        ingresos = self.movimientos_aves.filter(
+            tipo__in=["ingreso", "traslado_entrada", "ajuste_positivo"]
+        ).aggregate(total=Sum("cantidad"))["total"] or 0
+        muertes = self.movimientos_aves.filter(
+            tipo="muerte"
+        ).aggregate(total=Sum("cantidad"))["total"] or 0
+        if ingresos == 0:
+            return 0
+        return round((muertes / ingresos) * 100, 2)
+
+    @property
+    def edad_semanas(self):
+        from django.utils import timezone
+        if not self.fecha_nacimiento:
+            return None
+        delta = timezone.now().date() - self.fecha_nacimiento
+        return int(delta.days / 7)
+
+
+# ============================================================
+# 5.1 MOVIMIENTO DE AVES
+# ============================================================
+class MovimientoAve(models.Model):
+    TIPOS = [
+        ("ingreso", "Ingreso inicial"),
+        ("muerte", "Muerte"),
+        ("venta", "Venta"),
+        ("traslado_salida", "Traslado (sale)"),
+        ("traslado_entrada", "Traslado (entra)"),
+        ("descarte", "Descarte"),
+        ("ajuste_positivo", "Ajuste (suma)"),
+        ("ajuste_negativo", "Ajuste (resta)"),
+    ]
+
+    lote = models.ForeignKey(Lote, on_delete=models.CASCADE, related_name="movimientos_aves")
+    galpon = models.ForeignKey(Galpon, on_delete=models.PROTECT, related_name="movimientos_aves")
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    cantidad = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    fecha = models.DateField()
+    motivo = models.CharField(max_length=200, blank=True)
+    lote_destino = models.ForeignKey(
+        Lote, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="traslados_entrantes"
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "movimiento_ave"
+        verbose_name = "Movimiento de Ave"
+        verbose_name_plural = "Movimientos de Aves"
+        ordering = ["-fecha", "-creado_en"]
+        indexes = [models.Index(fields=["lote", "-fecha"])]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.cantidad} aves - {self.lote.codigo}"
 
 
 # ============================================================
@@ -672,8 +764,87 @@ class DetalleCompra(models.Model):
         return f"{self.insumo.nombre} x {self.cantidad}"
 
 
-# Modelos propios del módulo comercial de gallinaza. Se importan al final para
-# mantenerlos separados de los modelos generales y permitir que Django los registre.
+# ============================================================
+# 18. CONSUMO DE INSUMOS (Alimento por lote)
+# ============================================================
+class ConsumoInsumo(models.Model):
+    granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="consumos_insumos")
+    lote = models.ForeignKey(Lote, on_delete=models.CASCADE, related_name="consumos")
+    insumo = models.ForeignKey(Insumo, on_delete=models.PROTECT, related_name="consumos")
+    fecha = models.DateField()
+    cantidad = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "consumo_insumo"
+        verbose_name = "Consumo de Insumo"
+        verbose_name_plural = "Consumos de Insumos"
+        ordering = ["-fecha"]
+        unique_together = [("lote", "insumo", "fecha")]
+        indexes = [models.Index(fields=["granja", "fecha"])]
+
+    def __str__(self):
+        return f"{self.lote.codigo} - {self.insumo.nombre} ({self.cantidad})"
+
+
+# ============================================================
+# 19. MEDICAMENTO EN ALIMENTO (Fórmula / Dosis)
+# ============================================================
+class MedicamentoEnAlimento(models.Model):
+    granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="medicamentos_alimento")
+    alimento = models.ForeignKey(Insumo, on_delete=models.CASCADE, related_name="medicamentos_contiene")
+    medicamento = models.ForeignKey(Insumo, on_delete=models.CASCADE, related_name="medicamentos_en")
+    dosis_por_kg = models.DecimalField(max_digits=8, decimal_places=3, help_text="Gramos o ml por kg de alimento")
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField(null=True, blank=True)
+    periodo_retiro_dias = models.PositiveIntegerField(default=0, help_text="Días de retiro antes de vender huevos")
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "medicamento_en_alimento"
+        verbose_name = "Medicamento en Alimento"
+        verbose_name_plural = "Medicamentos en Alimento"
+        ordering = ["-fecha_inicio"]
+
+    def __str__(self):
+        return f"{self.alimento.nombre} + {self.medicamento.nombre} ({self.dosis_por_kg}/kg)"
+
+
+# ============================================================
+# 20. TARIFAS DE PRODUCTO (Precios por temporada)
+# ============================================================
+class TarifaProducto(models.Model):
+    TIPOS = [
+        ("base", "Precio Base"),
+        ("temporada", "Temporada"),
+        ("promocion", "Promoción"),
+    ]
+
+    granja = models.ForeignKey(Granja, on_delete=models.CASCADE, related_name="tarifas")
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="tarifas")
+    tipo = models.CharField(max_length=20, choices=TIPOS, default="base")
+    nombre_temporada = models.CharField(max_length=100, blank=True, help_text="Ej: Navidad 2026, Semana Santa")
+    precio = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField(null=True, blank=True, help_text="Vacío significa que no tiene fecha de fin")
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "tarifa_producto"
+        verbose_name = "Tarifa de Producto"
+        verbose_name_plural = "Tarifas de Productos"
+        ordering = ["-fecha_inicio"]
+        indexes = [models.Index(fields=["producto", "fecha_inicio"])]
+
+    def __str__(self):
+        return f"{self.producto.nombre} — {self.precio} Bs. ({self.nombre_temporada or 'Base'})"
+
+# ============================================================
+# 21. MÓDULO COMERCIAL DE GALLINAZA (ABONO)
+# ============================================================
 from .gallinaza_models import (  # noqa: E402,F401
     ProductoGallinaza,
     EntradaGallinaza,

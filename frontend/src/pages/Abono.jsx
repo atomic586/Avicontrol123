@@ -1,212 +1,302 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
-import { Wheat, Plus } from "lucide-react";
-import { ABONO_QUERY, GALPONES_QUERY, REGISTRAR_ABONO } from "../graphql/abono";
+import { Wheat, Plus, Package, ArrowDownCircle, ShoppingCart } from "lucide-react";
+import {
+  PRODUCTOS_GALLINAZA_QUERY,
+  ENTRADAS_GALLINAZA_QUERY,
+  VENTAS_GALLINAZA_QUERY,
+  REGISTRAR_ENTRADA_GALLINAZA,
+  GUARDAR_PRODUCTO_GALLINAZA,
+} from "../graphql/abono";
 import Modal from "../components/Modal";
 
-const ESTADOS = [
-  { value: "fresco", label: "Fresco", color: "badge-warning" },
-  { value: "en_tratamiento", label: "En tratamiento", color: "badge-info" },
-  { value: "seco", label: "Seco", color: "badge-success" },
-  { value: "listo", label: "Listo para vender", color: "badge-success" },
-  { value: "descartado", label: "Descartado", color: "badge-danger" },
+const TABS = [
+  { key: "productos", label: "Productos", icon: Package },
+  { key: "entradas", label: "Entradas", icon: ArrowDownCircle },
+  { key: "ventas", label: "Ventas", icon: ShoppingCart },
 ];
 
-const FORM_VACIO = {
-  galponId: "",
-  fecha: new Date().toISOString().split("T")[0],
-  cantidadKg: "",
-  estado: "fresco",
-  responsable: "",
-  observaciones: "",
-};
-
 export default function Abono() {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [filtro, setFiltro] = useState("");
-  const [form, setForm] = useState(FORM_VACIO);
-  const [error, setError] = useState("");
+  const [tab, setTab] = useState("productos");
 
-  const { data, loading, refetch } = useQuery(ABONO_QUERY, {
-    variables: { estado: filtro || null },
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
+          <Wheat className="w-8 h-8 text-brand-500" /> Abono y Subproductos
+        </h1>
+        <p className="text-gray-500 text-base mt-1 font-medium">Gestión comercial de gallinaza</p>
+      </div>
+
+      <div className="flex gap-2 border-b border-gray-200">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-3 font-bold text-sm flex items-center gap-2 border-b-2 transition-colors ${
+                tab === t.key ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <Icon className="w-4 h-4" /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "productos" && <TabProductos />}
+      {tab === "entradas" && <TabEntradas />}
+      {tab === "ventas" && <TabVentas />}
+    </div>
+  );
+}
+
+function TabProductos() {
+  const { data, loading, refetch } = useQuery(PRODUCTOS_GALLINAZA_QUERY, {
+    variables: { soloActivos: false },
     fetchPolicy: "network-only",
   });
-  const { data: dataGalpones } = useQuery(GALPONES_QUERY, { fetchPolicy: "network-only" });
-  const [registrar, { loading: guardando }] = useMutation(REGISTRAR_ABONO);
-
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const [guardarProducto, { loading: guardando }] = useMutation(GUARDAR_PRODUCTO_GALLINAZA);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState({ nombre: "", unidadBase: "kg", precioBulto: "0", precioKg: "0", precioTonelada: "0", stockMinimoKg: "0", activo: true });
+  const [error, setError] = useState("");
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.galponId) { setError("Selecciona un galpón."); return; }
     try {
-      await registrar({
+      await guardarProducto({
         variables: {
-          galponId: form.galponId,
-          fecha: form.fecha,
-          cantidadKg: parseFloat(form.cantidadKg),
-          estado: form.estado,
-          loteId: null,
-          responsable: form.responsable,
-          observaciones: form.observaciones,
+          nombre: form.nombre,
+          unidadBase: form.unidadBase,
+          precioBulto: parseFloat(form.precioBulto) || 0,
+          precioKg: parseFloat(form.precioKg) || 0,
+          precioTonelada: parseFloat(form.precioTonelada) || 0,
+          stockMinimoKg: parseFloat(form.stockMinimoKg) || 0,
+          activo: form.activo,
         },
       });
       setModalOpen(false);
-      setForm(FORM_VACIO);
       refetch();
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const generaciones = data?.generacionesAbono ?? [];
-  const totalKg = generaciones.reduce((acc, g) => acc + parseFloat(g.cantidadKg), 0);
-  const listos = generaciones.filter(g => g.estado === "listo").reduce((acc, g) => acc + parseFloat(g.cantidadKg), 0);
+  const productos = data?.productosGallinaza ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
-            <Wheat className="w-8 h-8 text-brand-500" /> Abono y Subproductos
-          </h1>
-          <p className="text-gray-500 text-base mt-1 font-medium">
-            Registro de recolección de gallinaza por galpón
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-end">
         <button onClick={() => setModalOpen(true)} className="btn-primary">
-          <Plus className="w-5 h-5" /> Registrar recolección
+          <Plus className="w-5 h-5" /> Nuevo producto
         </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card">
-          <p className="text-sm font-bold text-gray-500 uppercase">Total registros</p>
-          <p className="text-3xl font-black text-dark mt-1">{generaciones.length}</p>
-        </div>
-        <div className="card bg-brand-50 border-brand-100">
-          <p className="text-sm font-bold text-brand-700 uppercase">Total generado</p>
-          <p className="text-3xl font-black text-brand-700 mt-1">{totalKg.toFixed(2)} kg</p>
-        </div>
-        <div className="card bg-green-50 border-green-100">
-          <p className="text-sm font-bold text-green-700 uppercase">Listo para vender</p>
-          <p className="text-3xl font-black text-green-700 mt-1">{listos.toFixed(2)} kg</p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setFiltro("")}
-          className={`px-4 py-2 rounded-xl font-bold text-sm ${filtro === "" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200"}`}
-        >
-          Todos ({generaciones.length})
-        </button>
-        {ESTADOS.map(e => (
-          <button
-            key={e.value}
-            onClick={() => setFiltro(e.value)}
-            className={`px-4 py-2 rounded-xl font-bold text-sm ${filtro === e.value ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200"}`}
-          >
-            {e.label}
-          </button>
-        ))}
       </div>
 
       {loading ? (
-        <div className="card text-center py-12 text-gray-500">Cargando...</div>
+        <div className="card text-center py-12 text-gray-500">Cargando productos...</div>
+      ) : productos.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">No hay productos de gallinaza registrados.</div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-base">
-              <thead className="bg-brand-50 text-brand-800 text-sm uppercase tracking-wider">
-                <tr>
-                  <th className="text-left p-4 font-bold">Fecha</th>
-                  <th className="text-left p-4 font-bold">Galpón</th>
-                  <th className="text-right p-4 font-bold">Cantidad (kg)</th>
-                  <th className="text-left p-4 font-bold">Estado</th>
-                  <th className="text-left p-4 font-bold">Responsable</th>
-                </tr>
-              </thead>
-              <tbody>
-                {generaciones.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-500">
-                      No hay registros de abono aún.
-                    </td>
-                  </tr>
-                ) : (
-                  generaciones.map(g => {
-                    const estadoConfig = ESTADOS.find(e => e.value === g.estado);
-                    return (
-                      <tr key={g.id} className="border-t border-gray-100 hover:bg-brand-50/30">
-                        <td className="p-4 font-bold text-dark">
-                          {new Date(g.fecha).toLocaleDateString("es-BO")}
-                        </td>
-                        <td className="p-4 text-gray-700">Galpón #{g.galponId}</td>
-                        <td className="p-4 text-right font-bold text-gray-800">{parseFloat(g.cantidadKg).toFixed(2)} kg</td>
-                        <td className="p-4">
-                          <span className={estadoConfig?.color || "badge-info"}>
-                            {estadoConfig?.label || g.estado}
-                          </span>
-                        </td>
-                        <td className="p-4 text-gray-600">{g.responsable || "—"}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {productos.map((p) => (
+            <div key={p.id} className="card">
+              <h3 className="text-xl font-black text-dark mb-2">{p.nombre}</h3>
+              <p className="text-sm text-gray-500 mb-3">Unidad base: {p.unidadBase}</p>
+              <div className="space-y-1 text-sm text-gray-600">
+                <p>Stock actual: <strong>{Number(p.stockActualKg).toFixed(2)} kg</strong></p>
+                <p>Stock mínimo: {Number(p.stockMinimoKg).toFixed(2)} kg</p>
+                <p>Precio kg: Bs. {Number(p.precioKg).toFixed(2)}</p>
+                <p>Precio tonelada: Bs. {Number(p.precioTonelada).toFixed(2)}</p>
+              </div>
+              <div className="mt-3">
+                <span className={p.activo ? "badge-success" : "badge-danger"}>{p.activo ? "Activo" : "Inactivo"}</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar recolección de abono">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo producto de gallinaza">
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-bold text-gray-700 mb-1 block">Galpón *</label>
-            <select name="galponId" className="input-field" value={form.galponId} onChange={onChange} required>
-              <option value="">Selecciona un galpón</option>
-              {dataGalpones?.galpones?.map(g => (
-                <option key={g.id} value={g.id}>{g.codigo}</option>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Nombre *</label>
+            <input className="input-field" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Unidad base</label>
+            <input className="input-field" value={form.unidadBase} onChange={(e) => setForm({ ...form, unidadBase: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Precio bulto</label>
+              <input type="number" className="input-field" value={form.precioBulto} onChange={(e) => setForm({ ...form, precioBulto: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Precio kg</label>
+              <input type="number" className="input-field" value={form.precioKg} onChange={(e) => setForm({ ...form, precioKg: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-700 mb-1 block">Precio tonelada</label>
+              <input type="number" className="input-field" value={form.precioTonelada} onChange={(e) => setForm({ ...form, precioTonelada: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Stock mínimo (kg)</label>
+            <input type="number" className="input-field" value={form.stockMinimoKg} onChange={(e) => setForm({ ...form, stockMinimoKg: e.target.value })} />
+          </div>
+          {error && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">{error}</div>}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
+            <button type="submit" disabled={guardando} className="btn-primary">{guardando ? "Guardando..." : "Guardar"}</button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
+
+function TabEntradas() {
+  const { data: productosData } = useQuery(PRODUCTOS_GALLINAZA_QUERY, { variables: { soloActivos: true } });
+  const { data, loading, refetch } = useQuery(ENTRADAS_GALLINAZA_QUERY, { fetchPolicy: "network-only" });
+  const [registrarEntrada, { loading: guardando }] = useMutation(REGISTRAR_ENTRADA_GALLINAZA);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState({ productoId: "", fecha: new Date().toISOString().split("T")[0], cantidadKg: "", origen: "", observaciones: "" });
+  const [error, setError] = useState("");
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      await registrarEntrada({
+        variables: {
+          productoId: form.productoId,
+          fecha: form.fecha,
+          cantidadKg: parseFloat(form.cantidadKg),
+          origen: form.origen,
+          observaciones: form.observaciones,
+        },
+      });
+      setModalOpen(false);
+      setForm({ productoId: "", fecha: new Date().toISOString().split("T")[0], cantidadKg: "", origen: "", observaciones: "" });
+      refetch();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const entradas = data?.entradasGallinaza ?? [];
+  const productos = productosData?.productosGallinaza ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button onClick={() => setModalOpen(true)} className="btn-primary">
+          <Plus className="w-5 h-5" /> Registrar entrada
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="card text-center py-12 text-gray-500">Cargando entradas...</div>
+      ) : entradas.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">No hay entradas registradas.</div>
+      ) : (
+        <div className="card p-0 overflow-hidden">
+          <table className="w-full text-base">
+            <thead className="bg-brand-50 text-brand-800 text-sm uppercase">
+              <tr>
+                <th className="text-left p-4 font-bold">Fecha</th>
+                <th className="text-left p-4 font-bold">Producto</th>
+                <th className="text-right p-4 font-bold">Cantidad (kg)</th>
+                <th className="text-left p-4 font-bold">Origen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entradas.map((e) => (
+                <tr key={e.id} className="border-t border-gray-100">
+                  <td className="p-4 font-bold">{new Date(e.fecha).toLocaleDateString("es-BO")}</td>
+                  <td className="p-4">Producto #{e.productoId}</td>
+                  <td className="p-4 text-right font-bold">{Number(e.cantidadKg).toFixed(2)} kg</td>
+                  <td className="p-4 text-gray-600">{e.origen || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar entrada de gallinaza">
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Producto *</label>
+            <select className="input-field" value={form.productoId} onChange={(e) => setForm({ ...form, productoId: e.target.value })} required>
+              <option value="">Selecciona un producto</option>
+              {productos.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Fecha *</label>
-              <input type="date" name="fecha" className="input-field" value={form.fecha} onChange={onChange} required />
+              <input type="date" className="input-field" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} required />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700 mb-1 block">Cantidad (kg) *</label>
-              <input type="number" step="0.01" name="cantidadKg" className="input-field" value={form.cantidadKg} onChange={onChange} required />
+              <input type="number" step="0.01" className="input-field" value={form.cantidadKg} onChange={(e) => setForm({ ...form, cantidadKg: e.target.value })} required />
             </div>
           </div>
           <div>
-            <label className="text-sm font-bold text-gray-700 mb-1 block">Estado *</label>
-            <select name="estado" className="input-field" value={form.estado} onChange={onChange}>
-              {ESTADOS.map(e => (
-                <option key={e.value} value={e.value}>{e.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-bold text-gray-700 mb-1 block">Responsable</label>
-            <input name="responsable" className="input-field" value={form.responsable} onChange={onChange} />
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Origen</label>
+            <input className="input-field" value={form.origen} onChange={(e) => setForm({ ...form, origen: e.target.value })} />
           </div>
           <div>
             <label className="text-sm font-bold text-gray-700 mb-1 block">Observaciones</label>
-            <textarea name="observaciones" className="input-field" rows={2} value={form.observaciones} onChange={onChange} />
+            <textarea className="input-field" rows={2} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
           </div>
           {error && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">{error}</div>}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={guardando} className="btn-primary">
-              {guardando ? "Guardando..." : "Registrar"}
-            </button>
+            <button type="submit" disabled={guardando} className="btn-primary">{guardando ? "Guardando..." : "Registrar"}</button>
           </div>
         </form>
       </Modal>
+    </div>
+  );
+}
+
+function TabVentas() {
+  const { data, loading } = useQuery(VENTAS_GALLINAZA_QUERY, { fetchPolicy: "network-only" });
+  const ventas = data?.ventasGallinaza ?? [];
+
+  if (loading) return <div className="card text-center py-12 text-gray-500">Cargando ventas...</div>;
+  if (ventas.length === 0) return <div className="card text-center py-12 text-gray-500">No hay ventas registradas.</div>;
+
+  return (
+    <div className="card p-0 overflow-hidden">
+      <table className="w-full text-base">
+        <thead className="bg-brand-50 text-brand-800 text-sm uppercase">
+          <tr>
+            <th className="text-left p-4 font-bold">#</th>
+            <th className="text-left p-4 font-bold">Fecha</th>
+            <th className="text-left p-4 font-bold">Cliente</th>
+            <th className="text-right p-4 font-bold">Total</th>
+            <th className="text-left p-4 font-bold">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ventas.map((v) => (
+            <tr key={v.id} className="border-t border-gray-100">
+              <td className="p-4 font-bold">{v.numero}</td>
+              <td className="p-4">{new Date(v.fecha).toLocaleDateString("es-BO")}</td>
+              <td className="p-4">{v.nombreCliente}</td>
+              <td className="p-4 text-right font-bold">Bs. {Number(v.total).toFixed(2)}</td>
+              <td className="p-4"><span className="badge-info">{v.estado}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
