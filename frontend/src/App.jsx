@@ -24,9 +24,10 @@ import Compras from "./pages/Compras";
 import Entregas from "./pages/Entregas";
 import Reportes from "./pages/Reportes";
 import MedicamentosAlimento from "./pages/MedicamentosAlimento";
-import GalponDetalle from "./pages/GalponDetalle"; // <-- NUEVO
-import LoteDetalle from "./pages/LoteDetalle";     // <-- NUEVO
-import Granjas from "./pages/Granjas";             // <-- VOLVEMOS A USAR GRANJAS DIRECTAMENTE
+import GalponDetalle from "./pages/GalponDetalle";
+import LoteDetalle from "./pages/LoteDetalle";
+import Granjas from "./pages/Granjas";
+import Productos from "./pages/Productos";
 import { ThemeProvider } from "./theme/ThemeContext";
 
 function RutaAdmin({ children }) {
@@ -50,28 +51,12 @@ function Rutas() {
 
   return (
     <Routes>
-      {/* PORTAL PUBLICO */}
-      <Route path="/" element={<PortalPublico />} />
-      <Route path="/hacer-pedido" element={<HacerPedido />} />
-
-      {/* LOGIN CLIENTE */}
-      <Route path="/login" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <LoginCliente />} />
-      <Route path="/registro" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <RegistroCliente />} />
-      <Route path="/mis-pedidos" element={<RutaCliente><MisPedidos /></RutaCliente>} />
-
-      {/* LOGIN ADMIN */}
-      <Route path="/admin-login" element={usuario ? <Navigate to="/dashboard" replace /> : <LoginAdmin />} />
-
-      {/* PANEL ADMIN */}
+      {/* 1. RUTAS DE ADMINISTRACIÓN (Protegidas) - Van primero para evitar conflictos */}
       <Route path="/dashboard" element={<RutaAdmin><Dashboard /></RutaAdmin>} />
-      
-      {/* FLUJO JERÁRQUICO: Granjas -> Galpones -> Lotes */}
       <Route path="/granjas" element={<RutaAdmin><Granjas /></RutaAdmin>} />
       <Route path="/granjas/:id" element={<RutaAdmin><GranjaDetalle /></RutaAdmin>} />
       <Route path="/galpones/:id" element={<RutaAdmin><GalponDetalle /></RutaAdmin>} />
       <Route path="/lotes/:id" element={<RutaAdmin><LoteDetalle /></RutaAdmin>} />
-
-      {/* OTRAS RUTAS */}
       <Route path="/abono" element={<RutaAdmin><Abono /></RutaAdmin>} />
       <Route path="/clientes" element={<RutaAdmin><Clientes /></RutaAdmin>} />
       <Route path="/insumos" element={<RutaAdmin><Insumos /></RutaAdmin>} />
@@ -85,7 +70,19 @@ function Rutas() {
       <Route path="/reportes" element={<RutaAdmin><Reportes /></RutaAdmin>} />
       <Route path="/configuracion" element={<RutaAdmin><Configuracion /></RutaAdmin>} />
       <Route path="/usuarios" element={<RutaAdmin><Usuarios /></RutaAdmin>} />
+      <Route path="/productos" element={<RutaAdmin><Productos /></RutaAdmin>} />
 
+      {/* 2. LOGIN ADMIN */}
+      <Route path="/admin-login" element={usuario ? <Navigate to="/dashboard" replace /> : <LoginAdmin />} />
+
+      {/* 3. PORTAL PÚBLICO Y CLIENTES (Van al final) */}
+      <Route path="/" element={<PortalPublico />} />
+      <Route path="/hacer-pedido" element={<HacerPedido />} />
+      <Route path="/login" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <LoginCliente />} />
+      <Route path="/registro" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <RegistroCliente />} />
+      <Route path="/mis-pedidos" element={<RutaCliente><MisPedidos /></RutaCliente>} />
+
+      {/* 4. COMODÍN */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
