@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";

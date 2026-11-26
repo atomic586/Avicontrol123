@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import {
@@ -59,7 +59,6 @@ const ROL_COLOR = {
 
 export default function GranjaDetalle() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [tab, setTab] = useState("resumen");
 
   const { data, loading, error, refetch } = useQuery(GRANJA_DETALLE_QUERY, {
