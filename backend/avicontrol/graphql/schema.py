@@ -1055,6 +1055,9 @@ class Mutation:
     def crear_granja(
         self, info: Info, nombre: str, codigo: str, ubicacion: str,
         telefono: str = "", email: str = "",
+        razon_social: Optional[str] = None, nit: Optional[str] = None,
+        propietario: Optional[str] = None,
+        logo_url: Optional[str] = None, imagen_hero_url: Optional[str] = None,
     ) -> GranjaType:
         requerir_superadmin(info)
         if Granja.objects.filter(nombre=nombre).exists():
@@ -1064,6 +1067,8 @@ class Mutation:
         return Granja.objects.create(
             nombre=nombre, codigo=codigo, ubicacion=ubicacion,
             telefono=telefono, email=email,
+            razon_social=razon_social, nit=nit, propietario=propietario,
+            logo_url=logo_url, imagen_hero_url=imagen_hero_url,
         )
 
     @strawberry.mutation
@@ -1071,6 +1076,9 @@ class Mutation:
         self, info: Info, id: strawberry.ID, nombre: Optional[str] = None,
         ubicacion: Optional[str] = None, telefono: Optional[str] = None,
         email: Optional[str] = None, activo: Optional[bool] = None,
+        razon_social: Optional[str] = None, nit: Optional[str] = None,
+        propietario: Optional[str] = None,
+        logo_url: Optional[str] = None, imagen_hero_url: Optional[str] = None,
     ) -> Optional[GranjaType]:
         requerir_superadmin(info)
         granja = Granja.objects.filter(pk=id).first()
@@ -1081,6 +1089,8 @@ class Mutation:
         for campo, valor in [
             ("nombre", nombre), ("ubicacion", ubicacion),
             ("telefono", telefono), ("email", email), ("activo", activo),
+            ("razon_social", razon_social), ("nit", nit), ("propietario", propietario),
+            ("logo_url", logo_url), ("imagen_hero_url", imagen_hero_url),
         ]:
             if valor is not None:
                 setattr(granja, campo, valor)

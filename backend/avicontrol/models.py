@@ -25,6 +25,17 @@ class Granja(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 
+    # --- NUEVOS CAMPOS: Datos comerciales ---
+    razon_social = models.CharField(max_length=200, blank=True, null=True)
+    nit = models.CharField(max_length=30, blank=True, null=True)
+    propietario = models.CharField(max_length=150, blank=True, null=True)
+
+    # --- NUEVOS CAMPOS: Identidad visual ---
+    logo = models.ImageField(upload_to='granjas/logos/', blank=True, null=True)
+    imagen_hero = models.ImageField(upload_to='granjas/hero/', blank=True, null=True)
+    logo_url = models.URLField(blank=True, null=True)
+    imagen_hero_url = models.URLField(blank=True, null=True)
+
     class Meta:
         db_table = "granja"
         verbose_name = "Granja"
@@ -34,6 +45,17 @@ class Granja(models.Model):
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
 
+    @property
+    def logo_final(self):
+        if self.logo:
+            return self.logo.url
+        return self.logo_url or ""
+
+    @property
+    def hero_final(self):
+        if self.imagen_hero:
+            return self.imagen_hero.url
+        return self.imagen_hero_url or ""
 
 # ============================================================
 # 1. ROLES

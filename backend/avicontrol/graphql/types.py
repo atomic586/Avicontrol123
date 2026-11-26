@@ -27,6 +27,21 @@ class GranjaType:
     activo: bool
     creado_en: datetime
 
+    # --- NUEVOS CAMPOS ---
+    razon_social: Optional[str]
+    nit: Optional[str]
+    propietario: Optional[str]
+
+    @strawberry.field
+    def logo_final(self) -> str:
+        return self.logo_final
+
+    @strawberry.field
+    def hero_final(self) -> str:
+        return self.hero_final
+
+
+# ... (El resto de tus tipos se quedan exactamente igual) ...
 
 @strawberry_django.type(Rol)
 class RolType:
