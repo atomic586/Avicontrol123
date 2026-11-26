@@ -41,8 +41,6 @@ class GranjaType:
         return self.hero_final
 
 
-# ... (El resto de tus tipos se quedan exactamente igual) ...
-
 @strawberry_django.type(Rol)
 class RolType:
     id: strawberry.ID
@@ -519,3 +517,12 @@ class MovimientoGallinazaType:
     cantidad_kg: Decimal
     referencia: str
     created_at: datetime
+
+@strawberry.type
+class ProduccionDiariaType:
+    fecha: date
+    total: int
+    primera: int
+    segunda: int
+    tercera: int
+    descartados: int

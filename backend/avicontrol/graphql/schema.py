@@ -52,6 +52,16 @@ from .auth_jwt import generar_tokens, usuario_desde_request
 # ============================================================
 # TIPOS AUXILIARES
 # ============================================================
+@strawberry.type
+class ProduccionDiariaType:
+    fecha: date
+    total: int
+    primera: int
+    segunda: int
+    tercera: int
+    descartados: int
+
+
 @strawberry.input
 class DetalleInput:
     producto_id: strawberry.ID
@@ -63,6 +73,7 @@ class LineaAbonoPedidoInput:
     producto_id: strawberry.ID
     unidad_vendida: str
     cantidad: Decimal
+
 
 @strawberry.input
 class DetalleCompraInput:
@@ -293,6 +304,73 @@ class Query:
     def usuarios_granja(self, info: Info, id: strawberry.ID) -> List[UsuarioType]:
         requerir_superadmin(info)
         return list(Usuario.objects.filter(granja_id=id))
+
+    # ---- NUEVAS QUERIES PARA EL DASHBOARD DE GRANJA ----
+    @strawberry.field
+    def lotes_granja(
+        self, info: Info, granja_id: strawberry.ID,
+        busqueda: Optional[str] = None,
+        galpon_id: Optional[strawberry.ID] = None,
+        etapa: Optional[str] = None,
+    ) -> List[LoteType]:
+        requerir_superadmin(info)
+        qs = Lote.objects.filter(granja_id=granja_id).exclude(estado="baja")
+        if busqueda:
+            qs = qs.filter(
+                Q(codigo__icontains=busqueda) | Q(raza__icontains=busqueda)
+            )
+        if galpon_id:
+            qs = qs.filter(galpon_id=galpon_id)
+        if etapa:
+            qs = qs.filter(etapa=etapa)
+        return list(qs.select_related("galpon").order_by("-fecha_ingreso"))
+
+    @strawberry.field
+    def ventas_recientes_granja(
+        self, info: Info, granja_id: strawberry.ID, limit: int = 20
+    ) -> List[VentaCompletaType]:
+        requerir_superadmin(info)
+        return list(
+            Venta.objects.filter(granja_id=granja_id)
+            .select_related("pedido__cliente")
+            .prefetch_related("pedido__detalles__producto")
+            .order_by("-fecha")[:limit]
+        )
+
+    @strawberry.field
+    def produccion_diaria_granja(
+        self, info: Info, granja_id: strawberry.ID, dias: int = 30
+    ) -> List[ProduccionDiariaType]:
+        requerir_superadmin(info)
+        granja = Granja.objects.filter(pk=granja_id).first()
+        if not granja:
+            raise ValueError("Granja no encontrada.")
+        hoy = timezone.now().date()
+        desde = hoy - timezone.timedelta(days=dias)
+        resultado = (
+            Produccion.objects
+            .filter(granja=granja, fecha__gte=desde, fecha__lte=hoy)
+            .values("fecha")
+            .annotate(
+                total=Sum("total"),
+                primera=Sum("huevos_primera"),
+                segunda=Sum("huevos_segunda"),
+                tercera=Sum("huevos_tercera"),
+                descartados=Sum("huevos_descartados"),
+            )
+            .order_by("fecha")
+        )
+        return [
+            ProduccionDiariaType(
+                fecha=r["fecha"],
+                total=r["total"] or 0,
+                primera=r["primera"] or 0,
+                segunda=r["segunda"] or 0,
+                tercera=r["tercera"] or 0,
+                descartados=r["descartados"] or 0,
+            )
+            for r in resultado
+        ]
 
     # ---- GALPONES ----
     @strawberry.field
@@ -903,7 +981,6 @@ class Mutation:
             None,
         )
         if not cliente:
-            # Respuesta uniforme: no revelar si el correo pertenece a una cuenta.
             return True
 
         ahora = timezone.now()

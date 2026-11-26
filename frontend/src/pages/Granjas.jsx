@@ -6,56 +6,29 @@ import {
 } from "lucide-react";
 import {
   GRANJAS_QUERY,
-  CREAR_GRANJA,
-  ACTUALIZAR_GRANJA,
   CAMBIAR_ESTADO_GRANJA,
 } from "../graphql/granjas";
-import Modal from "../components/Modal";
-
-const FORM_VACIO = {
-  nombre: "",
-  codigo: "",
-  ubicacion: "",
-  telefono: "",
-  email: "",
-};
+import ModalCrearGranja from "../components/ModalCrearGranja";
 
 export default function Granjas() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [form, setForm] = useState(FORM_VACIO);
-  const [error, setError] = useState("");
 
   const { data, loading, error: qError, refetch } = useQuery(GRANJAS_QUERY, {
     fetchPolicy: "network-only",
   });
 
-  const [crearGranja, { loading: creando }] = useMutation(CREAR_GRANJA);
-  const [actualizarGranja, { loading: actualizando }] = useMutation(ACTUALIZAR_GRANJA);
   const [cambiarEstadoGranja] = useMutation(CAMBIAR_ESTADO_GRANJA);
 
   const abrirCrear = () => {
     setEditando(null);
-    setForm(FORM_VACIO);
-    setError("");
     setModalOpen(true);
   };
 
   const abrirEditar = (g) => {
     setEditando(g);
-    setForm({
-      nombre: g.nombre,
-      codigo: g.codigo,
-      ubicacion: g.ubicacion,
-      telefono: g.telefono || "",
-      email: g.email || "",
-    });
-    setError("");
     setModalOpen(true);
   };
-
-  const cerrar = () => setModalOpen(false);
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const toggleEstado = async (g) => {
     const nuevoEstado = !g.activo;
@@ -71,48 +44,17 @@ export default function Granjas() {
     }
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    try {
-      if (editando) {
-        await actualizarGranja({
-          variables: {
-            id: editando.id,
-            nombre: form.nombre,
-            ubicacion: form.ubicacion,
-            telefono: form.telefono,
-            email: form.email,
-          },
-        });
-      } else {
-        await crearGranja({
-          variables: {
-            nombre: form.nombre,
-            codigo: form.codigo,
-            ubicacion: form.ubicacion,
-            telefono: form.telefono,
-            email: form.email,
-          },
-        });
-      }
-      setModalOpen(false);
-      refetch();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
   const granjas = data?.granjas ?? [];
 
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
-            <Building2 className="w-8 h-8 text-brand-500" /> Granjas
+          <h1 className="text-3xl md:text-4xl font-black text-dark dark:text-white tracking-tight flex items-center gap-3">
+            <Building2 className="w-8 h-8 text-orange-500" /> Granjas
           </h1>
-          <p className="text-gray-500 text-base mt-1 font-medium">
+          <p className="text-gray-500 dark:text-gray-400 text-base mt-1 font-medium">
             Administra todas las granjas de la plataforma
           </p>
         </div>
@@ -121,121 +63,127 @@ export default function Granjas() {
         </button>
       </div>
 
+      {/* ERROR */}
       {qError && (
-        <div className="card bg-red-50 border-red-100 text-red-700 font-bold">
+        <div className="card bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800 text-red-700 dark:text-red-300 font-bold">
           {qError.message}
         </div>
       )}
 
+      {/* LISTA */}
       {loading ? (
-        <div className="card text-center py-12 text-gray-500">Cargando granjas...</div>
+        <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
+          Cargando granjas...
+        </div>
       ) : granjas.length === 0 ? (
-        <div className="card text-center py-12 text-gray-500">
-          No hay granjas registradas.
+        <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
+          No hay granjas registradas. ¡Crea la primera!
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {granjas.map((g) => (
-            <div key={g.id} className="card relative hover:border-brand-200 transition-colors">
-              <Link to={`/granjas/${g.id}`} className="block">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-12 h-12 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center font-black text-lg">
-                    {g.codigo.slice(0, 3)}
-                  </div>
-                  <span className={g.activo ? "badge-success" : "badge-danger"}>
+            <div
+              key={g.id}
+              className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden shadow-soft border border-gray-100 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 transition-all group"
+            >
+              {/* Imagen Hero como fondo de la tarjeta */}
+              <Link to={`/granjas/${g.id}`} className="block relative h-40 bg-gray-900 overflow-hidden">
+                {g.heroFinal ? (
+                  <img
+                    src={g.heroFinal}
+                    alt={g.nombre}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600"></div>
+                )}
+                {/* Gradiente inferior para el texto */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+
+                {/* Badge de estado */}
+                <div className="absolute top-3 right-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md border ${
+                    g.activo
+                      ? "bg-green-500/20 text-green-100 border-green-400/30"
+                      : "bg-red-500/20 text-red-100 border-red-400/30"
+                  }`}>
                     {g.activo ? "Activa" : "Suspendida"}
                   </span>
                 </div>
-                <h3 className="text-xl font-black text-dark">{g.nombre}</h3>
-                <p className="text-sm text-gray-500 font-bold mb-3">Código: {g.codigo}</p>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" /> {g.ubicacion}
+
+                {/* Código (abajo izquierda) */}
+                <div className="absolute bottom-3 left-3 text-white/90 text-xs font-mono bg-black/40 backdrop-blur-md px-2 py-1 rounded-md">
+                  {g.codigo}
+                </div>
+              </Link>
+
+              {/* Contenido de la tarjeta */}
+              <div className="p-5">
+                <Link to={`/granjas/${g.id}`}>
+                  <h3 className="text-xl font-black text-dark dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors line-clamp-1">
+                    {g.nombre}
+                  </h3>
+                  {g.razonSocial && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
+                      {g.razonSocial}
+                    </p>
+                  )}
+                </Link>
+
+                <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 mt-3">
+                  <p className="flex items-center gap-2 truncate">
+                    <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                    <span className="truncate">{g.ubicacion}</span>
                   </p>
                   {g.telefono && (
                     <p className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-400" /> {g.telefono}
+                      <Phone className="w-4 h-4 text-orange-500 flex-shrink-0" /> {g.telefono}
                     </p>
                   )}
                   {g.email && (
-                    <p className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-400" /> {g.email}
+                    <p className="flex items-center gap-2 truncate">
+                      <Mail className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      <span className="truncate">{g.email}</span>
                     </p>
                   )}
                 </div>
-              </Link>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => abrirEditar(g)}
-                  className="btn-secondary text-sm"
-                >
-                  <Pencil className="w-4 h-4" /> Editar
-                </button>
-                <button
-                  onClick={() => toggleEstado(g)}
-                  className={
-                    g.activo
-                      ? "text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-                      : "text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
-                  }
-                >
-                  {g.activo ? (
-                    <><PowerOff className="w-4 h-4" /> Suspender</>
-                  ) : (
-                    <><Power className="w-4 h-4" /> Activar</>
-                  )}
-                </button>
+
+                {/* Botones */}
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => abrirEditar(g)}
+                    className="text-sm inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" /> Editar
+                  </button>
+                  <button
+                    onClick={() => toggleEstado(g)}
+                    className={
+                      g.activo
+                        ? "text-sm inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                        : "text-sm inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-bold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                    }
+                  >
+                    {g.activo ? (
+                      <><PowerOff className="w-4 h-4" /> Suspender</>
+                    ) : (
+                      <><Power className="w-4 h-4" /> Activar</>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={cerrar} title={editando ? "Editar granja" : "Nueva granja"}>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm font-bold text-gray-700 mb-1 block">Nombre *</label>
-            <input name="nombre" className="input-field" value={form.nombre} onChange={onChange} required />
-          </div>
-          <div>
-            <label className="text-sm font-bold text-gray-700 mb-1 block">Código *</label>
-            <input
-              name="codigo"
-              className="input-field disabled:bg-gray-100"
-              value={form.codigo}
-              onChange={onChange}
-              required
-              disabled={!!editando}
-              placeholder="Ej: GLP-001"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-bold text-gray-700 mb-1 block">Ubicación *</label>
-            <input name="ubicacion" className="input-field" value={form.ubicacion} onChange={onChange} required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-bold text-gray-700 mb-1 block">Teléfono</label>
-              <input name="telefono" className="input-field" value={form.telefono} onChange={onChange} />
-            </div>
-            <div>
-              <label className="text-sm font-bold text-gray-700 mb-1 block">Email</label>
-              <input name="email" type="email" className="input-field" value={form.email} onChange={onChange} />
-            </div>
-          </div>
-          {error && (
-            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">
-              {error}
-            </div>
-          )}
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={cerrar} className="btn-secondary">Cancelar</button>
-            <button type="submit" disabled={creando || actualizando} className="btn-primary">
-              {creando || actualizando ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {/* MODAL NUEVO */}
+      <ModalCrearGranja
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        granjaEditando={editando}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }
