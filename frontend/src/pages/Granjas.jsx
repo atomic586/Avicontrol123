@@ -90,16 +90,27 @@ export default function Granjas() {
               {/* Imagen Hero como fondo de la tarjeta */}
               <Link to={`/granjas/${g.id}`} className="block relative h-40 bg-gray-900 overflow-hidden">
                 {g.heroFinal ? (
-  <img
-    src={mediaUrl(g.heroFinal)}
-    alt={g.nombre}
-    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-  />
-) : (
-  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600"></div>
-)}
+                  <img
+                    src={mediaUrl(g.heroFinal)}
+                    alt={g.nombre}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600"></div>
+                )}
                 {/* Gradiente inferior para el texto */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+
+                {/* ✅ LOGO FLOTANTE (arriba a la izquierda) */}
+                {g.logoFinal && (
+                  <div className="absolute top-3 left-3 w-12 h-12 rounded-xl bg-white dark:bg-gray-800 shadow-lg overflow-hidden flex items-center justify-center">
+                    <img
+                      src={mediaUrl(g.logoFinal)}
+                      alt="Logo"
+                      className="w-full h-full object-contain p-1"
+                    />
+                  </div>
+                )}
 
                 {/* Badge de estado */}
                 <div className="absolute top-3 right-3">

@@ -180,26 +180,39 @@ export default function GranjaDetalle() {
       {/* HERO CON IMAGEN Y DIFUMINADO */}
       <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden relative">
         <div className="h-64 sm:h-80 w-full relative bg-gray-900">
-         {g.heroFinal ? (
-  <img src={mediaUrl(g.heroFinal)} alt={g.nombre} className="w-full h-full object-cover" />
-) : (
-  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 dark:from-orange-600 dark:to-orange-900"></div>
-)}
+          {g.heroFinal ? (
+            <img src={mediaUrl(g.heroFinal)} alt={g.nombre} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 dark:from-orange-600 dark:to-orange-900"></div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
 
           <div className="absolute bottom-0 left-0 w-full p-6 sm:p-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div className="text-white">
-              <div className="flex items-center gap-3 mb-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md border ${
-                  g.activo ? "bg-green-500/20 text-green-100 border-green-400/30" : "bg-red-500/20 text-red-100 border-red-400/30"
-                }`}>
-                  {g.activo ? "Activa" : "Suspendida"}
-                </span>
-                <span className="text-white/80 font-medium text-sm flex items-center gap-1">
-                  <Building2 className="w-4 h-4" /> Código: {g.codigo}
-                </span>
+            <div className="flex items-end gap-5">
+              {/* ✅ LOGO EN EL HERO */}
+              {g.logoFinal && (
+                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-gray-800 shadow-xl overflow-hidden flex items-center justify-center flex-shrink-0">
+                  <img
+                    src={mediaUrl(g.logoFinal)}
+                    alt="Logo"
+                    className="w-full h-full object-contain p-2"
+                  />
+                </div>
+              )}
+
+              <div className="text-white">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md border ${
+                    g.activo ? "bg-green-500/20 text-green-100 border-green-400/30" : "bg-red-500/20 text-red-100 border-red-400/30"
+                  }`}>
+                    {g.activo ? "Activa" : "Suspendida"}
+                  </span>
+                  <span className="text-white/80 font-medium text-sm flex items-center gap-1">
+                    <Building2 className="w-4 h-4" /> Código: {g.codigo}
+                  </span>
+                </div>
+                <h1 className="text-4xl sm:text-5xl font-black tracking-tight drop-shadow-lg">{g.nombre}</h1>
               </div>
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight drop-shadow-lg">{g.nombre}</h1>
             </div>
 
             <button
