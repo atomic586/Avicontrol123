@@ -1,136 +1,165 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { gql } from '@apollo/client';
-import { useQuery } from '@apollo/client/react';
+import { useState } from "react";
+import { useQuery, useMutation } from "@apollo/client/react";
+import { Egg, Plus } from "lucide-react";
+import { LOTES_QUERY, CREAR_LOTE } from "../graphql/lotes";
+import { GALPONES_QUERY } from "../graphql/galpones";
+import Modal from "../components/Modal";
 
-const GET_LOTES = gql`
-  query GetLotes {
-    lotes {
-      id
-      codigo
-      raza
-      fechaIngreso
-      cantidadAves
-      estado
-      galpon {
-        id
-        codigo
-        granja {
-          id
-          nombre
-        }
-      }
-    }
-  }
-`;
+const ETAPAS = [
+  { value: "cria", label: "Cría (0-6 semanas)" },
+  { value: "recria", label: "Recría (6-18 semanas)" },
+  { value: "postura", label: "Postura (18-80 semanas)" },
+  { value: "descarte", label: "Descarte (>80 semanas)" },
+];
+
+const RAZAS = [
+  "Hy-Line Brown", "Lohmann Brown", "Isa Brown", "Babcock Brown", "Otra",
+];
 
 export default function Lotes() {
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('avicontrol_user') || '{}');
-  const [mostrarModal, setMostrarModal] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState({
+    galponId: "",
+    codigo: "",
+    raza: "Hy-Line Brown",
+    fechaIngreso: new Date().toISOString().split("T")[0],
+    cantidadAves: "",
+    etapa: "cria",
+  });
+  const [error, setError] = useState("");
 
-  const { data, loading, error } = useQuery(GET_LOTES, { fetchPolicy: 'network-only' });
+  const { data: galponesData } = useQuery(GALPONES_QUERY);
+  const { data, loading, refetch } = useQuery(LOTES_QUERY, {
+    fetchPolicy: "network-only",
+  });
+  const [crearLote, { loading: creando }] = useMutation(CREAR_LOTE);
 
-  const handleLogout = () => {
-    localStorage.removeItem('avicontrol_token');
-    localStorage.removeItem('avicontrol_user');
-    navigate('/');
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      await crearLote({
+        variables: {
+          galponId: form.galponId,
+          codigo: form.codigo,
+          raza: form.raza,
+          fechaIngreso: form.fechaIngreso,
+          cantidadAves: parseInt(form.cantidadAves, 10),
+          etapa: form.etapa,
+        },
+      });
+      setModalOpen(false);
+      setForm({
+        galponId: "",
+        codigo: "",
+        raza: "Hy-Line Brown",
+        fechaIngreso: new Date().toISOString().split("T")[0],
+        cantidadAves: "",
+        etapa: "cria",
+      });
+      refetch();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
+  const galpones = galponesData?.galpones ?? [];
+  const lotes = data?.lotes ?? [];
+
   return (
-    <div className="min-h-screen bg-avi-light">
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-6">
-              <h1 className="text-xl font-bold text-avi-yellow">🥚 AVICONTROL</h1>
-              <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Dashboard</button>
-              <button onClick={() => navigate('/clientes')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Clientes</button>
-              <button className="text-sm text-avi-yellow font-bold">Lotes</button>
-              <button onClick={() => navigate('/insumos')} className="text-sm text-gray-600 hover:text-avi-yellow font-medium">Insumos</button>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{user.username} ({user.rol})</span>
-              <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 font-medium">Cerrar Sesión</button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
+            <Egg className="w-8 h-8 text-brand-500" /> Lotes
+          </h1>
+          <p className="text-gray-500 text-base mt-1 font-medium">
+            Administra los lotes de aves
+          </p>
         </div>
-      </nav>
+        <button onClick={() => setModalOpen(true)} className="btn-primary">
+          <Plus className="w-5 h-5" /> Nuevo lote
+        </button>
+      </div>
 
-      {/* CONTENIDO */}
-      <main className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Gestión de Lotes</h2>
-          <button
-            onClick={() => setMostrarModal(true)}
-            className="bg-avi-yellow hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow"
-          >
-            + Nuevo Lote
-          </button>
-        </div>
-
-        {loading && <p className="text-gray-500">Cargando lotes...</p>}
-        {error && <p className="text-red-500">Error: {error.message}</p>}
-
-        {data && data.lotes && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Raza</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Granja / Galpón</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aves</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Ingreso</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.lotes.map((lote) => (
-                  <tr key={lote.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lote.codigo}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{lote.raza}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {lote.galpon?.granja?.nombre} / {lote.galpon?.codigo}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{lote.cantidadAves}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{lote.fechaIngreso}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        lote.estado === 'activo' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {lote.estado}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {data.lotes.length === 0 && (
-              <p className="text-center text-gray-500 py-8">No hay lotes registrados todavía.</p>
-            )}
-          </div>
-        )}
-
-        {/* MODAL PLACEHOLDER (lo completamos en el siguiente paso) */}
-        {mostrarModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-              <h3 className="text-lg font-bold mb-4">Nuevo Lote</h3>
-              <p className="text-gray-600 mb-4">El formulario se completará en el siguiente paso.</p>
-              <button
-                onClick={() => setMostrarModal(false)}
-                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded-lg"
-              >
-                Cerrar
-              </button>
+      {loading ? (
+        <div className="card text-center py-12 text-gray-500">Cargando lotes...</div>
+      ) : lotes.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">No hay lotes registrados.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {lotes.map((l) => (
+            <div key={l.id} className="card relative">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Egg className="w-6 h-6" />
+                </div>
+                <span className="badge-info">{l.etapa}</span>
+              </div>
+              <h3 className="text-xl font-black text-dark">Lote {l.codigo}</h3>
+              <p className="text-sm text-gray-500 font-bold mb-3">{l.raza}</p>
+              <div className="space-y-1 text-sm text-gray-600">
+                <p>Aves iniciales: <strong>{Number(l.cantidadAves).toLocaleString()}</strong></p>
+                <p>Aves actuales: <strong>{l.avesActuales}</strong></p>
+                <p>Ingreso: {new Date(l.fechaIngreso).toLocaleDateString("es-BO")}</p>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo lote">
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Galpón *</label>
+            <select name="galponId" className="input-field" value={form.galponId} onChange={onChange} required>
+              <option value="">Selecciona un galpón</option>
+              {galpones.map((g) => (
+                <option key={g.id} value={g.id}>Galpón {g.codigo} (Cap: {g.capacidadAves})</option>
+              ))}
+            </select>
           </div>
-        )}
-      </main>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Código *</label>
+            <input name="codigo" className="input-field" value={form.codigo} onChange={onChange} required placeholder="Ej: L-01" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Raza *</label>
+            <select name="raza" className="input-field" value={form.raza} onChange={onChange} required>
+              {RAZAS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Fecha de ingreso *</label>
+            <input type="date" name="fechaIngreso" className="input-field" value={form.fechaIngreso} onChange={onChange} required />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Cantidad de aves *</label>
+            <input type="number" name="cantidadAves" className="input-field" value={form.cantidadAves} onChange={onChange} required min="1" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Etapa *</label>
+            <select name="etapa" className="input-field" value={form.etapa} onChange={onChange} required>
+              {ETAPAS.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+            </select>
+          </div>
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">
+              {error}
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" disabled={creando} className="btn-primary">
+              {creando ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

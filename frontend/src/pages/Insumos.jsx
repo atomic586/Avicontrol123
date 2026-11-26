@@ -7,6 +7,7 @@ import {
   ACTUALIZAR_INSUMO,
   ELIMINAR_INSUMO,
 } from "../graphql/insumos";
+import { useAuth } from "../auth/AuthContext";
 import Modal from "../components/Modal";
 
 const FORM_VACIO = {
@@ -36,6 +37,9 @@ const TIPO_COLOR = {
 };
 
 export default function Insumos() {
+  const { tieneRol } = useAuth();
+  const puedeEditar = tieneRol(["superadmin", "admin_granja", "encargado_almacen"]);
+
   const [filtro, setFiltro] = useState("todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -145,9 +149,11 @@ export default function Insumos() {
             Inventario de alimento, vacunas, vitaminas y medicamentos
           </p>
         </div>
-        <button onClick={abrirCrear} className="btn-primary">
-          <Plus className="w-5 h-5" /> Nuevo insumo
-        </button>
+        {puedeEditar && (
+          <button onClick={abrirCrear} className="btn-primary">
+            <Plus className="w-5 h-5" /> Nuevo insumo
+          </button>
+        )}
       </div>
 
       {qError && (
@@ -211,13 +217,13 @@ export default function Insumos() {
                   <th className="text-right p-4 font-bold">Stock</th>
                   <th className="text-right p-4 font-bold">Mín.</th>
                   <th className="text-left p-4 font-bold">Vencimiento</th>
-                  <th className="text-right p-4 font-bold">Acciones</th>
+                  {puedeEditar && <th className="text-right p-4 font-bold">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {insumosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-gray-500 font-medium">
+                    <td colSpan={puedeEditar ? 7 : 6} className="p-8 text-center text-gray-500 font-medium">
                       No hay insumos con este filtro.
                     </td>
                   </tr>
@@ -240,22 +246,24 @@ export default function Insumos() {
                         <td className="p-4 text-gray-600">
                           {i.fechaVencimiento ? new Date(i.fechaVencimiento).toLocaleDateString("es-BO") : "—"}
                         </td>
-                        <td className="p-4 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => abrirEditar(i)}
-                            className="text-brand-700 hover:text-brand-900 hover:bg-brand-50 p-2 rounded-lg transition-colors mr-1"
-                            title="Editar"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => onEliminar(i.id)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
+                        {puedeEditar && (
+                          <td className="p-4 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => abrirEditar(i)}
+                              className="text-brand-700 hover:text-brand-900 hover:bg-brand-50 p-2 rounded-lg transition-colors mr-1"
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => onEliminar(i.id)}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })

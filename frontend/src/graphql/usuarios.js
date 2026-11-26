@@ -20,12 +20,7 @@ export const USUARIOS_QUERY = gql`
 
 export const ROLES_QUERY = gql`
   query Roles {
-    roles {
-      id
-      codigo
-      nombre
-      descripcion
-    }
+    roles { id codigo nombre descripcion }
   }
 `;
 
@@ -35,7 +30,7 @@ export const CREAR_USUARIO = gql`
     $email: String!
     $password: String!
     $rolCodigo: String!
-    $granjaId: ID
+    $granjaId: ID!
     $nombres: String
     $apellidos: String
     $telefono: String
@@ -49,11 +44,7 @@ export const CREAR_USUARIO = gql`
       nombres: $nombres
       apellidos: $apellidos
       telefono: $telefono
-    ) {
-      id
-      username
-      email
-    }
+    ) { id username email }
   }
 `;
 
@@ -75,10 +66,12 @@ export const ACTUALIZAR_USUARIO = gql`
       email: $email
       activo: $activo
       rolCodigo: $rolCodigo
-    ) {
-      id
-      username
-      activo
-    }
+    ) { id username activo }
+  }
+`;
+
+export const ELIMINAR_USUARIO = gql`
+  mutation EliminarUsuario($id: ID!) {
+    eliminarUsuario(id: $id)
   }
 `;

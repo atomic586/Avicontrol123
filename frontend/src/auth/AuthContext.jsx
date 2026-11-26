@@ -29,6 +29,7 @@ export function AuthProvider({ children }) {
       }
     }
     setCargando(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const iniciarSesion = (access, refresh, user) => {
@@ -45,9 +46,36 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
+  // ============================================
+  // ROLES DINÁMICOS (para usar en toda la app)
+  // ============================================
+  const roles = usuario?.roles?.map((r) => r.codigo) || [];
+  const esSuperadmin = roles.includes("superadmin");
+  const esAdminGranja = roles.includes("admin_granja");
+  const esVentas = roles.includes("encargado_ventas");
+  const esProduccion = roles.includes("encargado_produccion");
+  const esAlmacen = roles.includes("encargado_almacen");
+
+  const tieneRol = (rolesPermitidos) => {
+    if (!usuario) return false;
+    return rolesPermitidos.some((r) => roles.includes(r));
+  };
+
   return (
     <AuthContext.Provider
-      value={{ usuario, cargando, iniciarSesion, cerrarSesion }}
+      value={{
+        usuario,
+        cargando,
+        iniciarSesion,
+        cerrarSesion,
+        roles,
+        esSuperadmin,
+        esAdminGranja,
+        esVentas,
+        esProduccion,
+        esAlmacen,
+        tieneRol,
+      }}
     >
       {children}
     </AuthContext.Provider>

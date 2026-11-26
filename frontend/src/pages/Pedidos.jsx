@@ -7,6 +7,7 @@ import {
   CREAR_PEDIDO,
   CAMBIAR_ESTADO_PEDIDO,
 } from "../graphql/pedidos";
+import { useAuth } from "../auth/AuthContext";
 import Modal from "../components/Modal";
 
 const CLIENTES_QUERY = gql`
@@ -25,6 +26,9 @@ const ESTADOS = [
 ];
 
 export default function Pedidos() {
+  const { tieneRol } = useAuth();
+  const puedeEditar = tieneRol(["superadmin", "admin_granja", "encargado_ventas"]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [clienteId, setClienteId] = useState("");
   const [fechaPedido, setFechaPedido] = useState(new Date().toISOString().split("T")[0]);
@@ -113,9 +117,11 @@ export default function Pedidos() {
             Organiza cada entrega desde la solicitud hasta el cobro
           </p>
         </div>
-        <button onClick={abrirModal} className="btn-primary">
-          <Plus className="w-5 h-5" /> Nuevo pedido
-        </button>
+        {puedeEditar && (
+          <button onClick={abrirModal} className="btn-primary">
+            <Plus className="w-5 h-5" /> Nuevo pedido
+          </button>
+        )}
       </div>
 
       {qError && (
@@ -164,17 +170,19 @@ export default function Pedidos() {
                         <span className="text-xs font-black text-brand-700">Bs. {parseFloat(p.total).toFixed(2)}</span>
                       </div>
                       <p className="text-xs text-gray-400 mt-2">{new Date(p.fechaPedido).toLocaleDateString("es-BO")}</p>
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {ESTADOS.filter((s) => s.value !== p.estado && s.value !== "anulado").map((s) => (
-                          <button
-                            key={s.value}
-                            onClick={() => onCambiarEstado(p.id, s.value)}
-                            className="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded"
-                          >
-                            <ArrowRight className="w-3 h-3 inline" /> {s.label}
-                          </button>
-                        ))}
-                      </div>
+                      {puedeEditar && (
+                        <div className="flex gap-1 mt-2 flex-wrap">
+                          {ESTADOS.filter((s) => s.value !== p.estado && s.value !== "anulado").map((s) => (
+                            <button
+                              key={s.value}
+                              onClick={() => onCambiarEstado(p.id, s.value)}
+                              className="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded"
+                            >
+                              <ArrowRight className="w-3 h-3 inline" /> {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

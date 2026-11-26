@@ -1,10 +1,14 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
-import { Building2, Plus, Pencil, MapPin, Phone, Mail } from "lucide-react";
+import {
+  Building2, Plus, Pencil, MapPin, Phone, Mail, Power, PowerOff,
+} from "lucide-react";
 import {
   GRANJAS_QUERY,
   CREAR_GRANJA,
   ACTUALIZAR_GRANJA,
+  CAMBIAR_ESTADO_GRANJA,
 } from "../graphql/granjas";
 import Modal from "../components/Modal";
 
@@ -28,6 +32,7 @@ export default function Granjas() {
 
   const [crearGranja, { loading: creando }] = useMutation(CREAR_GRANJA);
   const [actualizarGranja, { loading: actualizando }] = useMutation(ACTUALIZAR_GRANJA);
+  const [cambiarEstadoGranja] = useMutation(CAMBIAR_ESTADO_GRANJA);
 
   const abrirCrear = () => {
     setEditando(null);
@@ -51,6 +56,20 @@ export default function Granjas() {
 
   const cerrar = () => setModalOpen(false);
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const toggleEstado = async (g) => {
+    const nuevoEstado = !g.activo;
+    const verbo = nuevoEstado ? "activar" : "suspender";
+    if (!window.confirm(`¿Seguro que quieres ${verbo} la granja "${g.nombre}"?`)) return;
+    try {
+      await cambiarEstadoGranja({
+        variables: { id: g.id, activo: nuevoEstado },
+      });
+      refetch();
+    } catch (err) {
+      alert(`Error al ${verbo} la granja: ${err.message}`);
+    }
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -117,38 +136,56 @@ export default function Granjas() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {granjas.map((g) => (
-            <div key={g.id} className="card relative">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-12 h-12 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center font-black text-lg">
-                  {g.codigo.slice(0, 3)}
+            <div key={g.id} className="card relative hover:border-brand-200 transition-colors">
+              <Link to={`/granjas/${g.id}`} className="block">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-100 text-brand-700 flex items-center justify-center font-black text-lg">
+                    {g.codigo.slice(0, 3)}
+                  </div>
+                  <span className={g.activo ? "badge-success" : "badge-danger"}>
+                    {g.activo ? "Activa" : "Suspendida"}
+                  </span>
                 </div>
-                <span className={g.activo ? "badge-success" : "badge-danger"}>
-                  {g.activo ? "Activa" : "Suspendida"}
-                </span>
-              </div>
-              <h3 className="text-xl font-black text-dark">{g.nombre}</h3>
-              <p className="text-sm text-gray-500 font-bold mb-3">Código: {g.codigo}</p>
-              <div className="space-y-1 text-sm text-gray-600">
-                <p className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400" /> {g.ubicacion}
-                </p>
-                {g.telefono && (
+                <h3 className="text-xl font-black text-dark">{g.nombre}</h3>
+                <p className="text-sm text-gray-500 font-bold mb-3">Código: {g.codigo}</p>
+                <div className="space-y-1 text-sm text-gray-600">
                   <p className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-gray-400" /> {g.telefono}
+                    <MapPin className="w-4 h-4 text-gray-400" /> {g.ubicacion}
                   </p>
-                )}
-                {g.email && (
-                  <p className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-400" /> {g.email}
-                  </p>
-                )}
+                  {g.telefono && (
+                    <p className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-gray-400" /> {g.telefono}
+                    </p>
+                  )}
+                  {g.email && (
+                    <p className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-gray-400" /> {g.email}
+                    </p>
+                  )}
+                </div>
+              </Link>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => abrirEditar(g)}
+                  className="btn-secondary text-sm"
+                >
+                  <Pencil className="w-4 h-4" /> Editar
+                </button>
+                <button
+                  onClick={() => toggleEstado(g)}
+                  className={
+                    g.activo
+                      ? "text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+                      : "text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-bold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
+                  }
+                >
+                  {g.activo ? (
+                    <><PowerOff className="w-4 h-4" /> Suspender</>
+                  ) : (
+                    <><Power className="w-4 h-4" /> Activar</>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => abrirEditar(g)}
-                className="mt-4 w-full btn-secondary text-sm"
-              >
-                <Pencil className="w-4 h-4" /> Editar
-              </button>
             </div>
           ))}
         </div>

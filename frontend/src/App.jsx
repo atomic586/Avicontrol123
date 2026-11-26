@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { ClienteAuthProvider, useClienteAuth } from "./auth/ClienteAuthContext";
+import { GranjaProvider } from "./context/GranjaContext";
 import Layout from "./components/Layout";
 import LoginAdmin from "./pages/LoginAdmin";
 import LoginCliente from "./pages/LoginCliente";
@@ -15,13 +16,17 @@ import Produccion from "./pages/Produccion";
 import Pedidos from "./pages/Pedidos";
 import Ventas from "./pages/Ventas";
 import Configuracion from "./pages/Configuracion";
-import Granjas from "./pages/Granjas";
+import GranjaDetalle from "./pages/GranjaDetalle";
 import Abono from "./pages/Abono";
 import Usuarios from "./pages/Usuarios";
 import Proveedores from "./pages/Proveedores";
 import Compras from "./pages/Compras";
 import Entregas from "./pages/Entregas";
 import Reportes from "./pages/Reportes";
+import MedicamentosAlimento from "./pages/MedicamentosAlimento";
+import GalponDetalle from "./pages/GalponDetalle"; // <-- NUEVO
+import LoteDetalle from "./pages/LoteDetalle";     // <-- NUEVO
+import Granjas from "./pages/Granjas";             // <-- VOLVEMOS A USAR GRANJAS DIRECTAMENTE
 
 function RutaAdmin({ children }) {
   const { usuario, cargando } = useAuth();
@@ -58,11 +63,19 @@ function Rutas() {
 
       {/* PANEL ADMIN */}
       <Route path="/dashboard" element={<RutaAdmin><Dashboard /></RutaAdmin>} />
+      
+      {/* FLUJO JERÁRQUICO: Granjas -> Galpones -> Lotes */}
       <Route path="/granjas" element={<RutaAdmin><Granjas /></RutaAdmin>} />
+      <Route path="/granjas/:id" element={<RutaAdmin><GranjaDetalle /></RutaAdmin>} />
+      <Route path="/galpones/:id" element={<RutaAdmin><GalponDetalle /></RutaAdmin>} />
+      <Route path="/lotes/:id" element={<RutaAdmin><LoteDetalle /></RutaAdmin>} />
+
+      {/* OTRAS RUTAS */}
       <Route path="/abono" element={<RutaAdmin><Abono /></RutaAdmin>} />
       <Route path="/clientes" element={<RutaAdmin><Clientes /></RutaAdmin>} />
       <Route path="/insumos" element={<RutaAdmin><Insumos /></RutaAdmin>} />
       <Route path="/produccion" element={<RutaAdmin><Produccion /></RutaAdmin>} />
+      <Route path="/medicamentos-alimento" element={<RutaAdmin><MedicamentosAlimento /></RutaAdmin>} />
       <Route path="/pedidos" element={<RutaAdmin><Pedidos /></RutaAdmin>} />
       <Route path="/entregas" element={<RutaAdmin><Entregas /></RutaAdmin>} />
       <Route path="/ventas" element={<RutaAdmin><Ventas /></RutaAdmin>} />
@@ -81,7 +94,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ClienteAuthProvider>
-        <Rutas />
+        <GranjaProvider>
+          <Rutas />
+        </GranjaProvider>
       </ClienteAuthProvider>
     </AuthProvider>
   );

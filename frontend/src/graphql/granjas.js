@@ -60,3 +60,13 @@ export const ACTUALIZAR_GRANJA = gql`
     }
   }
 `;
+
+export const CAMBIAR_ESTADO_GRANJA = gql`
+  mutation CambiarEstadoGranja($id: ID!, $activo: Boolean!) {
+    cambiarEstadoGranja(id: $id, activo: $activo) {
+      id
+      nombre
+      activo
+    }
+  }
+`;

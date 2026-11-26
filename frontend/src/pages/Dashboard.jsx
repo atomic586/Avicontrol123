@@ -1,16 +1,20 @@
-import { gql } from "@apollo/client";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@apollo/client/react";
+import { gql } from "@apollo/client";
+import { useAuth } from "../auth/AuthContext";
 import {
-  Users, ShoppingCart, DollarSign, Egg,
-  AlertTriangle, TrendingUp, Calendar, Wheat, Building2
+  Egg, ShoppingCart, DollarSign, Users, TrendingUp, TrendingDown,
+  Calendar, PlusCircle, FileText, ArrowRight, Activity, Home, CheckCircle2, ChevronDown, Bell
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  BarChart, Bar, Legend
 } from "recharts";
-import { useAuth } from "../auth/AuthContext";
 
+// Query para el dashboard (mantenemos tu query actual)
 const DASHBOARD_QUERY = gql`
-  query Dashboard {
+  query DashboardData {
     dashboard {
       totalClientes
       pedidosHoy
@@ -21,185 +25,266 @@ const DASHBOARD_QUERY = gql`
       productoMasVendidoCantidad
       abonoGeneradoMesKg
       abonoVendidoMesKg
-      insumosStockBajo { id nombre stock stockMinimo }
-      insumosPorVencer { id nombre fechaVencimiento }
-    }
-    producciones {
-      fecha
-      huevosPrimera
-      huevosSegunda
-      huevosTercera
-    }
-    granjaActual {
-      id
-      nombre
-      codigo
     }
   }
 `;
 
-function KpiCard({ title, value, icon: Icon, trend, colorClass, bgClass }) {
-  const bgOverlay = "absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-5 transition-transform group-hover:scale-110 " + bgClass;
-  const bgIcon = "p-3.5 rounded-2xl bg-opacity-10 " + bgClass;
-  const iconClass = "w-7 h-7 " + colorClass;
+const GRANJA_ACTUAL_QUERY = gql`
+  query GranjaActual {
+    granjaActual {
+      id
+      nombre
+      codigo
+      ubicacion
+      telefono
+      email
+      activo
+    }
+  }
+`;
 
-  return (
-    <div className="card flex flex-col justify-between relative overflow-hidden group hover:border-brand-200 transition-colors cursor-default">
-      <div className={bgOverlay}></div>
-      <div className="flex justify-between items-start mb-4 relative z-10">
-        <div>
-          <p className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{title}</p>
-          <h3 className="text-4xl font-black text-dark tracking-tight">{value}</h3>
-        </div>
-        <div className={bgIcon}>
-          <Icon className={iconClass} strokeWidth={2.5} />
-        </div>
-      </div>
-      {trend && (
-        <p className="text-sm text-gray-500 flex items-center gap-1.5 font-bold relative z-10">
-          <TrendingUp className="w-4 h-4 text-green-500" /> {trend}
-        </p>
-      )}
-    </div>
-  );
-}
+// Datos simulados para los gráficos (luego los conectamos a la BD real)
+const DATA_PRODUCCION = [
+  { name: "Lun", huevos: 45000 },
+  { name: "Mar", huevos: 52000 },
+  { name: "Mié", huevos: 48000 },
+  { name: "Jue", huevos: 61000 },
+  { name: "Vie", huevos: 75000 },
+  { name: "Sáb", huevos: 68000 },
+  { name: "Dom", huevos: 72000 },
+];
+
+const DATA_VENTAS = [
+  { name: "Sem 1", huevos: 3500, abono: 1200 },
+  { name: "Sem 2", huevos: 4200, abono: 1500 },
+  { name: "Sem 3", huevos: 3800, abono: 1100 },
+  { name: "Sem 4", huevos: 5100, abono: 1800 },
+];
 
 export default function Dashboard() {
   const { usuario } = useAuth();
-  const { data, loading, error } = useQuery(DASHBOARD_QUERY, { fetchPolicy: "network-only" });
+  const [periodo, setPeriodo] = useState("semana");
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><p className="text-lg font-bold text-gray-400 animate-pulse">Cargando panel general...</p></div>;
-  }
-  if (error) {
-    return (
-      <div className="card bg-red-50 text-red-700 border-red-200">
-        <p className="font-bold mb-2">Error al cargar el panel:</p>
-        <p className="text-sm font-mono bg-white p-2 rounded border border-red-200">{error.message}</p>
-      </div>
-    );
-  }
+  const { data, loading, error } = useQuery(DASHBOARD_QUERY, {
+    fetchPolicy: "network-only",
+  });
+  const { data: dataGranja } = useQuery(GRANJA_ACTUAL_QUERY, {
+    fetchPolicy: "network-only",
+  });
 
-  const d = data.dashboard;
-  const esSuperadmin = usuario?.roles?.some((r) => r.codigo === "superadmin");
-  const granja = data.granjaActual;
-
-  const chartData = (data.producciones || [])
-    .slice(0, 7)
-    .map((p) => ({
-      name: new Date(p.fecha).toLocaleDateString("es-ES", { weekday: "short" }),
-      primera: p.huevosPrimera,
-      segunda: p.huevosSegunda,
-      tercera: p.huevosTercera,
-    }))
-    .reverse();
+  const d = data?.dashboard;
+  const granja = dataGranja?.granjaActual;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div className="space-y-6 pb-10">
+      
+      {/* HEADER DE BIENVENIDA */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight">
-            Panel {esSuperadmin ? "de la Plataforma" : "de Gestión Avícola"}
+          <h1 className="text-3xl font-black text-dark tracking-tight">
+            ¡Hola, {usuario?.nombres || "Admin"}! 👋
           </h1>
-          <p className="text-gray-500 text-base mt-2 font-medium">
-            {esSuperadmin
-              ? "Vista global de todas las granjas activas"
-              : "Granja: " + (granja?.nombre || "Sin granja") + " (" + (granja?.codigo || "—") + ")"}
-          </p>
+          <p className="text-gray-500 font-medium mt-1">Aquí está el resumen de tu granja hoy.</p>
         </div>
-        <button className="btn-primary">
-          <Calendar className="w-5 h-5" /> Ver reporte general
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <KpiCard title="Clientes" value={d.totalClientes} icon={Users} colorClass="text-blue-600" bgClass="bg-blue-600" trend="Registrados" />
-        <KpiCard title="Pedidos Pendientes" value={d.pedidosHoy} icon={ShoppingCart} colorClass="text-brand-600" bgClass="bg-brand-500" trend="Requieren atención" />
-        <KpiCard title="Ingresos Totales" value={"Bs. " + Number(d.ingresosTotales).toLocaleString("es-BO")} icon={DollarSign} colorClass="text-green-600" bgClass="bg-green-600" trend="Histórico" />
-        <KpiCard title="Stock Crítico" value={d.insumosStockBajo.length} icon={AlertTriangle} colorClass="text-red-600" bgClass="bg-red-600" trend="Revisar inventario" />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <KpiCard title="Abono Generado (mes)" value={Number(d.abonoGeneradoMesKg).toFixed(0) + " kg"} icon={Wheat} colorClass="text-amber-700" bgClass="bg-amber-600" trend="Recolectado" />
-        <KpiCard title="Abono Vendido (mes)" value={Number(d.abonoVendidoMesKg).toFixed(0) + " kg"} icon={Wheat} colorClass="text-green-700" bgClass="bg-green-600" trend="Comercializado" />
-        <KpiCard title="Pedidos (mes)" value={d.pedidosMes} icon={ShoppingCart} colorClass="text-indigo-600" bgClass="bg-indigo-600" trend="Acumulados" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="card lg:col-span-2">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-black text-dark">Producción de Huevos</h2>
-              <p className="text-sm text-gray-500 font-medium mt-1">Últimos 7 días</p>
-            </div>
-            <span className="badge-warning">7 días</span>
+        <div className="flex items-center gap-3">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm font-bold text-gray-600 shadow-sm cursor-pointer hover:bg-gray-50">
+            <Calendar className="w-4 h-4" /> Últimos 30 días <ChevronDown className="w-4 h-4" />
           </div>
-          {chartData.length === 0 ? (
-            <p className="text-center py-16 text-gray-400 font-medium">Sin datos de producción aún.</p>
-          ) : (
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }} barSize={32}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 13, fontWeight: 600 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#6B7280", fontSize: 13, fontWeight: 600 }} />
-                  <Tooltip cursor={{ fill: "#F3F4F6" }} contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)", fontWeight: 600 }} />
-                  <Bar dataKey="primera" name="Primera" fill="#F59E0B" radius={[6, 6, 0, 0]} stackId="a" />
-                  <Bar dataKey="segunda" name="Segunda" fill="#FCD34D" radius={[0, 0, 0, 0]} stackId="a" />
-                  <Bar dataKey="tercera" name="Tercera" fill="#FEF3C7" radius={[0, 0, 0, 0]} stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
         </div>
+      </div>
 
-        <div className="space-y-6">
-          <div className="card bg-red-50 border-red-100">
-            <div className="flex items-center gap-2 mb-5">
-              <AlertTriangle className="w-6 h-6 text-red-600" strokeWidth={2.5} />
-              <h2 className="text-xl font-black text-red-900">Alertas de Stock</h2>
-            </div>
-            {d.insumosStockBajo.length === 0 ? (
-              <p className="text-sm text-red-700 font-medium bg-white p-4 rounded-xl border border-red-100">Todo el inventario está en niveles óptimos.</p>
-            ) : (
-              <div className="space-y-3">
-                {d.insumosStockBajo.slice(0, 5).map((i) => (
-                  <div key={i.id} className="bg-white p-4 rounded-xl border border-red-100 flex justify-between items-center shadow-sm">
-                    <div>
-                      <p className="text-base font-bold text-gray-900">{i.nombre}</p>
-                      <p className="text-sm text-gray-500 font-medium mt-0.5">Mín: {i.stockMinimo}</p>
-                    </div>
-                    <span className="badge-danger">{i.stock} disp.</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card bg-brand-50 border-brand-100">
-            <div className="flex items-center gap-2 mb-4">
-              <Egg className="w-6 h-6 text-brand-700" strokeWidth={2.5} />
-              <h2 className="text-xl font-black text-brand-900">Top Ventas</h2>
-            </div>
-            <p className="text-2xl font-black text-brand-700 leading-tight">{d.productoMasVendido}</p>
-            <p className="text-sm text-brand-700/80 mt-2 font-medium">
-              {Number(d.productoMasVendidoCantidad).toFixed(0)} unidades vendidas
+      {/* TARJETAS KPI (Igual que en el detalle de granja) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Ingresos */}
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Ingresos Totales</p>
+            <p className="text-2xl font-black text-green-600">
+              Bs. {d ? Number(d.ingresosTotales).toLocaleString("es-BO", { minimumFractionDigits: 2 }) : "0,00"}
             </p>
           </div>
+          <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-500">
+            <DollarSign className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Pedidos */}
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pedidos del Mes</p>
+            <p className="text-2xl font-black text-brand-600">{d?.pedidosMes ?? 0}</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-500">
+            <ShoppingCart className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Clientes */}
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Clientes</p>
+            <p className="text-2xl font-black text-dark">{d?.totalClientes ?? 0}</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
+            <Users className="w-6 h-6" />
+          </div>
+        </div>
+
+        {/* Producto Top */}
+        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Más Vendido</p>
+            <p className="text-sm font-black text-dark leading-tight">{d?.productoMasVendido || "—"}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{d?.productoMasVendidoCantidad || 0} unid.</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500">
+            <TrendingUp className="w-6 h-6" />
+          </div>
         </div>
       </div>
 
-      {esSuperadmin && (
-        <div className="card bg-brand-50 border-brand-100">
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="w-5 h-5 text-brand-700" />
-            <h2 className="text-lg font-black text-brand-900">Modo superadministrador</h2>
+      {/* GRÁFICOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Gráfico 1: Producción de Huevos */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-black text-dark">Producción de Huevos</h2>
+              <p className="text-sm text-gray-500 font-medium">Esta semana</p>
+            </div>
+            <div className="bg-brand-50 text-brand-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+               <TrendingUp className="w-3 h-3" /> 88.955 Huevos
+            </div>
           </div>
-          <p className="text-sm text-brand-700">
-            Estás viendo los datos globales de la plataforma. Para ver una granja específica, ve a <strong>Granjas</strong> en el sidebar.
-          </p>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={DATA_PRODUCCION} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} tickFormatter={(v) => `${v / 1000}k`} />
+                <RechartsTooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  formatter={(value) => [`${value.toLocaleString()} huevos`, 'Producción']}
+                />
+                <Line type="monotone" dataKey="huevos" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      )}
+
+        {/* Gráfico 2: Ventas vs Abono */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-black text-dark">Ingresos y Ventas</h2>
+              <p className="text-sm text-gray-500 font-medium">Este mes</p>
+            </div>
+            <div className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+               <TrendingUp className="w-3 h-3" /> Bs. 6.245,00
+            </div>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={DATA_VENTAS} margin={{ top: 5, right: 0, bottom: 5, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
+                <RechartsTooltip 
+                  cursor={{fill: '#f8fafc'}}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
+                <Bar dataKey="huevos" name="Ventas Huevos" fill="#f97316" radius={[4, 4, 0, 0]} barSize={30} />
+                <Bar dataKey="abono" name="Ventas Abono" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ACTIVIDAD RECIENTE Y ACCESOS RÁPIDOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Actividad Reciente (Simulada visualmente) */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-black text-dark flex items-center gap-2">
+              <Activity className="w-5 h-5 text-brand-500" /> Actividad Reciente
+            </h2>
+            <button className="text-sm font-bold text-brand-600 hover:text-brand-800">Ver todas →</button>
+          </div>
+          <div className="space-y-1">
+             <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><ShoppingCart className="w-4 h-4"/></div>
+                  <div>
+                    <p className="font-bold text-sm text-dark">Venta de huevos</p>
+                    <p className="text-xs text-gray-500">Bs. 420,00</p>
+                  </div>
+               </div>
+               <div className="text-right">
+                 <p className="text-xs font-bold text-gray-700">Hoy, 16:30</p>
+                 <p className="text-xs text-gray-500">Alex R.</p>
+               </div>
+             </div>
+             
+             <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center"><Egg className="w-4 h-4"/></div>
+                  <div>
+                    <p className="font-bold text-sm text-dark">Registro de producción</p>
+                    <p className="text-xs text-gray-500">88.955 huevos</p>
+                  </div>
+               </div>
+               <div className="text-right">
+                 <p className="text-xs font-bold text-gray-700">Hoy, 15:20</p>
+                 <p className="text-xs text-gray-500">Enc. Producción</p>
+               </div>
+             </div>
+
+             <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><FileText className="w-4 h-4"/></div>
+                  <div>
+                    <p className="font-bold text-sm text-dark">Venta de abono</p>
+                    <p className="text-xs text-gray-500">Bs. 250,00</p>
+                  </div>
+               </div>
+               <div className="text-right">
+                 <p className="text-xs font-bold text-gray-700">Hoy, 14:10</p>
+                 <p className="text-xs text-gray-500">Enc. Ventas</p>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Accesos Rápidos */}
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft">
+          <h2 className="text-lg font-black text-dark mb-4 flex items-center gap-2">
+             <PlusCircle className="w-5 h-5 text-brand-500" /> Accesos Rápidos
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+             <Link to="/ventas" className="flex flex-col items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-2xl transition-colors border border-orange-100 group">
+               <ShoppingCart className="w-8 h-8 text-orange-500 mb-2 group-hover:scale-110 transition-transform" />
+               <span className="text-xs font-bold text-orange-800 text-center">Registrar Venta</span>
+             </Link>
+             <Link to="/produccion" className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl transition-colors border border-blue-100 group">
+               <Egg className="w-8 h-8 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
+               <span className="text-xs font-bold text-blue-800 text-center">Reg. Producción</span>
+             </Link>
+             <Link to="/abono" className="flex flex-col items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-2xl transition-colors border border-green-100 group">
+               <DollarSign className="w-8 h-8 text-green-500 mb-2 group-hover:scale-110 transition-transform" />
+               <span className="text-xs font-bold text-green-800 text-center">Venta de Abono</span>
+             </Link>
+             <Link to="/reportes" className="flex flex-col items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-2xl transition-colors border border-purple-100 group">
+               <FileText className="w-8 h-8 text-purple-500 mb-2 group-hover:scale-110 transition-transform" />
+               <span className="text-xs font-bold text-purple-800 text-center">Ver Reportes</span>
+             </Link>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

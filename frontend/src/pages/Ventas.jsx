@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { DollarSign, Plus } from "lucide-react";
 import { VENTAS_QUERY, REGISTRAR_VENTA } from "../graphql/ventas";
+import { useAuth } from "../auth/AuthContext";
 import Modal from "../components/Modal";
 
 const PEDIDOS_PENDIENTES_QUERY = gql`
@@ -26,6 +27,9 @@ const FORMAS_PAGO = [
 ];
 
 export default function Ventas() {
+  const { tieneRol } = useAuth();
+  const puedeRegistrar = tieneRol(["superadmin", "admin_granja", "encargado_ventas"]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [pedidoId, setPedidoId] = useState("");
   const [formaPago, setFormaPago] = useState("efectivo");
@@ -71,9 +75,11 @@ export default function Ventas() {
             Cobra pedidos entregados y consulta el historial
           </p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="btn-primary">
-          <Plus className="w-5 h-5" /> Registrar venta
-        </button>
+        {puedeRegistrar && (
+          <button onClick={() => setModalOpen(true)} className="btn-primary">
+            <Plus className="w-5 h-5" /> Registrar venta
+          </button>
+        )}
       </div>
 
       {qError && (

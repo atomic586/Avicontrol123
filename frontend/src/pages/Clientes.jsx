@@ -7,6 +7,7 @@ import {
   ACTUALIZAR_CLIENTE,
   ELIMINAR_CLIENTE,
 } from "../graphql/clientes";
+import { useAuth } from "../auth/AuthContext";
 import Modal from "../components/Modal";
 
 const FORM_VACIO = {
@@ -19,6 +20,9 @@ const FORM_VACIO = {
 };
 
 export default function Clientes() {
+  const { tieneRol } = useAuth();
+  const puedeEditar = tieneRol(["superadmin", "admin_granja", "encargado_ventas"]);
+
   const [busqueda, setBusqueda] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -115,9 +119,11 @@ export default function Clientes() {
             Compradores de huevos y abono registrados en tu granja
           </p>
         </div>
-        <button onClick={abrirCrear} className="btn-primary">
-          <Plus className="w-5 h-5" /> Nuevo cliente
-        </button>
+        {puedeEditar && (
+          <button onClick={abrirCrear} className="btn-primary">
+            <Plus className="w-5 h-5" /> Nuevo cliente
+          </button>
+        )}
       </div>
 
       {qError && (
@@ -154,13 +160,13 @@ export default function Clientes() {
                   <th className="text-left p-4 font-bold">Teléfono</th>
                   <th className="text-left p-4 font-bold">Email</th>
                   <th className="text-left p-4 font-bold">Login</th>
-                  <th className="text-right p-4 font-bold">Acciones</th>
+                  {puedeEditar && <th className="text-right p-4 font-bold">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {clientes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-gray-500">
+                    <td colSpan={puedeEditar ? 7 : 6} className="p-8 text-center text-gray-500">
                       No hay clientes registrados.
                     </td>
                   </tr>
@@ -177,22 +183,24 @@ export default function Clientes() {
                           {c.puedeLoguearse ? "Activo" : "Sin cuenta"}
                         </span>
                       </td>
-                      <td className="p-4 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => abrirEditar(c)}
-                          className="text-brand-700 hover:text-brand-900 hover:bg-brand-50 p-2 rounded-lg transition-colors mr-1"
-                          title="Editar"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onEliminar(c.id)}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+                      {puedeEditar && (
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <button
+                            onClick={() => abrirEditar(c)}
+                            className="text-brand-700 hover:text-brand-900 hover:bg-brand-50 p-2 rounded-lg transition-colors mr-1"
+                            title="Editar"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => onEliminar(c.id)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
