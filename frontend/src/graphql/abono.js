@@ -1,14 +1,54 @@
 import { gql } from "@apollo/client";
 
+export const ABONO_QUERY = gql`
+  query GeneracionesAbono($estado: String) {
+    generacionesAbono(estado: $estado) {
+      id
+      galponId
+      fecha
+      cantidadKg
+      estado
+      responsable
+      observaciones
+    }
+  }
+`;
+
+export const REGISTRAR_ABONO = gql`
+  mutation RegistrarGeneracionAbono(
+    $galponId: ID!
+    $fecha: Date!
+    $cantidadKg: Decimal!
+    $estado: String
+    $loteId: ID
+    $responsable: String
+    $observaciones: String
+  ) {
+    registrarGeneracionAbono(
+      galponId: $galponId
+      fecha: $fecha
+      cantidadKg: $cantidadKg
+      estado: $estado
+      loteId: $loteId
+      responsable: $responsable
+      observaciones: $observaciones
+    ) {
+      id
+      estado
+    }
+  }
+`;
+
 // ============================================================
 // PRODUCTOS DE GALLINAZA
 // ============================================================
 export const PRODUCTOS_GALLINAZA_QUERY = gql`
-  query ProductosGallinaza($soloActivos: Boolean) {
-    productosGallinaza(soloActivos: $soloActivos) {
+  query ProductosGallinaza($soloActivos: Boolean, $granjaId: ID) {
+    productosGallinaza(soloActivos: $soloActivos, granjaId: $granjaId) {
       id
       granjaId
       nombre
+      tipo
       unidadBase
       precioBulto
       precioKg
@@ -25,6 +65,7 @@ export const GUARDAR_PRODUCTO_GALLINAZA = gql`
     $id: ID
     $nombre: String
     $unidadBase: String
+    $tipo: String
     $precioBulto: Decimal
     $precioKg: Decimal
     $precioTonelada: Decimal
@@ -35,6 +76,7 @@ export const GUARDAR_PRODUCTO_GALLINAZA = gql`
       id: $id
       nombre: $nombre
       unidadBase: $unidadBase
+      tipo: $tipo
       precioBulto: $precioBulto
       precioKg: $precioKg
       precioTonelada: $precioTonelada
@@ -132,7 +174,7 @@ export const VENTAS_GALLINAZA_QUERY = gql`
 export const REGISTRAR_VENTA_GALLINAZA = gql`
   mutation RegistrarVentaGallinaza(
     $fecha: Date!
-    $detalles: [DetalleInput!]!
+    $detalles: [LineaAbonoPedidoInput!]!
     $clienteId: ID
     $metodoPago: String
     $montoRecibido: Decimal

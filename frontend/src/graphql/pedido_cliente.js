@@ -4,6 +4,7 @@ export const CATALOGO_PUBLICO = gql`
   query CatalogoPublico {
     productos(soloActivos: true) {
       id
+      granjaId
       nombre
       tipo
       presentacion

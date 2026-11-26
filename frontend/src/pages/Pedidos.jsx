@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
+import { Link } from "react-router-dom";
 import { ShoppingCart, Plus, ArrowRight } from "lucide-react";
 import {
   PEDIDOS_QUERY,
@@ -10,6 +11,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import Modal from "../components/Modal";
 import HuevoMascota from "../components/HuevoMascota";
+import { VENTAS_GALLINAZA_QUERY } from "../graphql/abono";
 
 const CLIENTES_QUERY = gql`
   query { clientes { id nombres apellidos dni } }
@@ -36,9 +38,13 @@ export default function Pedidos() {
   const [detalles, setDetalles] = useState([{ productoId: "", cantidad: 1 }]);
   const [error, setError] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
+  const [vistaPedidos, setVistaPedidos] = useState("huevos");
 
   const { data, loading, error: qError, refetch } = useQuery(PEDIDOS_QUERY, {
     variables: { estado: estadoFiltro || null },
+    fetchPolicy: "network-only",
+  });
+  const { data: abonoData, loading: cargandoAbono, error: errorAbono } = useQuery(VENTAS_GALLINAZA_QUERY, {
     fetchPolicy: "network-only",
   });
   const { data: dataClientes } = useQuery(CLIENTES_QUERY);
@@ -102,6 +108,7 @@ export default function Pedidos() {
   };
 
   const pedidos = data?.pedidos ?? [];
+  const ventasAbono = abonoData?.ventasGallinaza ?? [];
   const agrupados = ESTADOS.reduce((acc, e) => {
     acc[e.value] = pedidos.filter((p) => p.estado === e.value);
     return acc;
@@ -121,11 +128,31 @@ export default function Pedidos() {
             Organiza cada entrega desde la solicitud hasta el cobro
           </p>
         </div>
-        {puedeEditar && (
+        {puedeEditar && vistaPedidos === "huevos" && (
           <button onClick={abrirModal} className="btn-primary">
             <Plus className="w-5 h-5" /> Nuevo pedido
           </button>
         )}
+        {puedeEditar && vistaPedidos === "abono" && (
+          <Link to="/abono" className="btn-primary">Gestionar abono</Link>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3" role="tablist" aria-label="Tipo de pedidos">
+        {[
+          { key: "huevos", label: `Pedidos de huevos (${pedidos.length})` },
+          { key: "abono", label: `Pedidos de abono (${ventasAbono.length})` },
+        ].map((vista) => (
+          <button
+            key={vista.key}
+            role="tab"
+            aria-selected={vistaPedidos === vista.key}
+            onClick={() => setVistaPedidos(vista.key)}
+            className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${vistaPedidos === vista.key ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
+          >
+            {vista.label}
+          </button>
+        ))}
       </div>
 
       {qError && (
@@ -135,6 +162,7 @@ export default function Pedidos() {
         </div>
       )}
 
+      {vistaPedidos === "huevos" ? <>
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setEstadoFiltro("")}
@@ -195,6 +223,42 @@ export default function Pedidos() {
           ))}
         </div>
       )}
+      </> :
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-xl font-black text-dark">Pedidos de abono</h2>
+          <p className="text-sm text-gray-500">Ventas registradas desde el módulo Abono</p>
+        </div>
+        {errorAbono ? (
+          <div className="card border-red-200 bg-red-50 text-red-700 p-4">No se pudieron cargar los pedidos de abono: {errorAbono.message}</div>
+        ) : cargandoAbono ? (
+          <div className="card text-center py-6 text-gray-500">Cargando pedidos de abono...</div>
+        ) : ventasAbono.length === 0 ? (
+          <div className="card text-center py-6 text-gray-500">Aún no hay pedidos de abono registrados.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {ventasAbono.map((venta) => (
+              <article key={venta.id} className="card p-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <p className="font-black text-dark">Pedido de abono #{venta.numero}</p>
+                    <p className="text-sm text-gray-500">{venta.nombreCliente}</p>
+                  </div>
+                  <span className="badge-info">{venta.estado}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">{new Date(`${venta.fecha}T12:00:00`).toLocaleDateString("es-BO")}</p>
+                <div className="mt-3 space-y-1 text-sm text-gray-600">
+                  {venta.detalles.map((detalle) => (
+                    <p key={detalle.id}>{detalle.producto.nombre}: {Number(detalle.cantidad)} {detalle.unidadVendida}</p>
+                  ))}
+                </div>
+                <p className="text-lg font-black text-brand-700 mt-3">Bs. {Number(venta.total).toFixed(2)}</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+      }
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo pedido">
         <form onSubmit={onSubmit} className="space-y-4">

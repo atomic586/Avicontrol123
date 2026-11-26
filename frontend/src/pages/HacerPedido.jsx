@@ -1,28 +1,35 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { ShoppingCart, ArrowLeft, CheckCircle } from "lucide-react";
 import { CATALOGO_PUBLICO } from "../graphql/pedido_cliente";
+import { PRODUCTOS_GALLINAZA_QUERY } from "../graphql/abono";
 import { useClienteAuth } from "../auth/ClienteAuthContext";
 import LayoutPublico from "../components/LayoutPublico";
 
 const GRANJAS_PUBLICAS = gql`
   query GranjasPublicas {
-    granjas { id codigo nombre }
+    granjas { id codigo nombre activo }
   }
 `;
 
-const CREAR_CLIENTE_INVITADO = gql`
-  mutation CrearClienteInvitado(
-    $nombres: String!
-    $apellidos: String!
-    $dni: String!
-    $telefono: String!
+const CREAR_PEDIDO_CLIENTE = gql`
+  mutation CrearPedidoCliente(
+    $granjaId: ID
+    $huevos: [DetalleInput!]
+    $abono: [LineaAbonoPedidoInput!]
+    $nombres: String
+    $apellidos: String
+    $dni: String
+    $telefono: String
     $email: String
-    $direccion: String!
+    $direccion: String
   ) {
-    crearCliente(
+    crearPedidoCliente(
+      granjaId: $granjaId
+      huevos: $huevos
+      abono: $abono
       nombres: $nombres
       apellidos: $apellidos
       dni: $dni
@@ -30,32 +37,29 @@ const CREAR_CLIENTE_INVITADO = gql`
       email: $email
       direccion: $direccion
     ) {
-      id
-      nombres
-      apellidos
-    }
-  }
-`;
-
-const CREAR_PEDIDO = gql`
-  mutation CrearPedido($clienteId: ID!, $fechaPedido: Date!, $detalles: [DetalleInput!]!) {
-    crearPedido(clienteId: $clienteId, fechaPedido: $fechaPedido, detalles: $detalles) {
-      id
-      estado
+      pedidoHuevos { id estado total }
+      pedidoAbono { id numero estado total }
       total
     }
   }
 `;
 
 export default function HacerPedido() {
-  const navigate = useNavigate();
   const { cliente } = useClienteAuth();
+  const [granjaSeleccionada, setGranjaSeleccionada] = useState("");
 
   const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, { fetchPolicy: "cache-first" });
   const { data: dataProductos, loading } = useQuery(CATALOGO_PUBLICO, { fetchPolicy: "network-only" });
+  const granjasActivas = (dataGranjas?.granjas ?? []).filter((g) => g.activo);
+  const granjaId = cliente?.granjaId || granjaSeleccionada || granjasActivas[0]?.id;
+  const granja = granjasActivas.find((g) => g.id === granjaId);
+  const { data: dataAbono, loading: cargandoAbono } = useQuery(PRODUCTOS_GALLINAZA_QUERY, {
+    variables: { soloActivos: true, granjaId },
+    skip: !granjaId,
+    fetchPolicy: "network-only",
+  });
 
-  const [crearCliente] = useMutation(CREAR_CLIENTE_INVITADO);
-  const [crearPedido, { loading: guardando }] = useMutation(CREAR_PEDIDO);
+  const [crearPedido, { loading: guardando }] = useMutation(CREAR_PEDIDO_CLIENTE);
 
   const [carrito, setCarrito] = useState({});
   const [datosInvitado, setDatosInvitado] = useState({
@@ -68,9 +72,28 @@ export default function HacerPedido() {
   });
   const [error, setError] = useState("");
   const [pedidoCreado, setPedidoCreado] = useState(null);
+  const [unidadesAbono, setUnidadesAbono] = useState({});
 
-  const productos = (dataProductos?.productos ?? []).filter((p) => parseFloat(p.stock) > 0);
-  const granjaPrincipal = dataGranjas?.granjas?.[0];
+  const huevos = (dataProductos?.productos ?? [])
+    .filter((p) => p.tipo === "huevo" && p.granjaId === granjaId && parseFloat(p.stock) > 0)
+    .map((p) => ({
+      ...p, cartId: `huevo-${p.id}`, productoId: p.id, categoria: "huevo",
+      precio: parseFloat(p.precioUnitario), stockVisible: parseFloat(p.stock), unidadVisible: p.unidadMedida,
+      presentacionVisible: p.presentacion.replaceAll("_", " "),
+    }));
+  const abonos = (dataAbono?.productosGallinaza ?? [])
+    .filter((p) => parseFloat(p.stockActualKg) > 0)
+    .map((p) => {
+      const unidad = unidadesAbono[p.id] || "kg";
+      const precios = { kg: p.precioKg, bulto: p.precioBulto, tonelada: p.precioTonelada };
+      return {
+        ...p, cartId: `abono-${p.id}`, productoId: p.id, categoria: "abono", unidad,
+        calidad: p.tipo === "en_tratamiento" ? "En tratamiento" : p.tipo === "listo" ? "Listo para vender" : p.tipo[0].toUpperCase() + p.tipo.slice(1),
+        precio: parseFloat(precios[unidad]), stockVisible: parseFloat(p.stockActualKg),
+        unidadVisible: "kg disponibles", presentacionVisible: `Venta por ${unidad}`,
+      };
+    });
+  const productos = [...huevos, ...abonos];
 
   const cambiar = (productoId, delta) => {
     setCarrito((prev) => {
@@ -84,11 +107,41 @@ export default function HacerPedido() {
   };
 
   const total = Object.entries(carrito).reduce((acc, [id, cant]) => {
-    const prod = productos.find((p) => p.id === id);
-    return acc + (prod ? parseFloat(prod.precioUnitario) * cant : 0);
+    const prod = productos.find((p) => p.cartId === id);
+    return acc + (prod ? prod.precio * cant : 0);
   }, 0);
 
   const items = Object.entries(carrito);
+
+  const renderProducto = (p) => {
+    const cant = carrito[p.cartId] || 0;
+    const esAbono = p.categoria === "abono";
+    return (
+      <div key={p.cartId} className="card flex items-center justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={esAbono ? "badge-success" : "badge-warning"}>{esAbono ? "🌱 Abono" : "🥚 Huevo"}</span>
+            {p.calidad && <span className="text-xs text-gray-500">{p.calidad}</span>}
+          </div>
+          <h3 className="font-bold text-dark">{p.nombre}</h3>
+          <p className="text-sm text-gray-500">{p.presentacionVisible} · Stock: {p.stockVisible.toFixed(2)} {p.unidadVisible}</p>
+          <p className="text-lg font-black text-brand-700 mt-1">Bs. {p.precio.toFixed(2)} / {esAbono ? p.unidad : p.unidadVisible}</p>
+          {esAbono && (
+            <select className="input-field mt-2 max-w-xs" value={p.unidad} onChange={(e) => setUnidadesAbono((prev) => ({ ...prev, [p.id]: e.target.value }))} aria-label={`Unidad para ${p.nombre}`}>
+              <option value="kg">Kilogramo</option>
+              <option value="bulto">Bulto (50 kg)</option>
+              <option value="tonelada">Tonelada</option>
+            </select>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => cambiar(p.cartId, -1)} className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 font-black text-lg">−</button>
+          <span className="w-10 text-center font-black">{cant}</span>
+          <button type="button" onClick={() => cambiar(p.cartId, 1)} className="w-9 h-9 rounded-lg bg-brand-100 hover:bg-brand-200 font-black text-lg">+</button>
+        </div>
+      </div>
+    );
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -99,35 +152,37 @@ export default function HacerPedido() {
     }
 
     try {
-      let clienteId;
-      if (cliente) {
-        clienteId = cliente.id;
-      } else {
+      if (!cliente && !granjaId) {
+        setError("No hay una granja disponible para recibir pedidos.");
+        return;
+      }
+      if (!cliente) {
         if (!datosInvitado.nombres || !datosInvitado.apellidos || !datosInvitado.dni || !datosInvitado.telefono) {
           setError("Completa tus datos de contacto.");
           return;
         }
-        const { data: d } = await crearCliente({
-          variables: {
-            nombres: datosInvitado.nombres,
-            apellidos: datosInvitado.apellidos,
-            dni: datosInvitado.dni,
-            telefono: datosInvitado.telefono,
-            email: datosInvitado.email || null,
-            direccion: datosInvitado.direccion || "",
-          },
-        });
-        clienteId = d.crearCliente.id;
       }
 
       const { data: dp } = await crearPedido({
         variables: {
-          clienteId,
-          fechaPedido: new Date().toISOString().split("T")[0],
-          detalles: items.map(([productoId, cantidad]) => ({ productoId, cantidad })),
+          granjaId,
+          huevos: items.flatMap(([cartId, cantidad]) => {
+            const producto = productos.find((p) => p.cartId === cartId);
+            return producto?.categoria === "huevo" ? [{ productoId: producto.productoId, cantidad }] : [];
+          }),
+          abono: items.flatMap(([cartId, cantidad]) => {
+            const producto = productos.find((p) => p.cartId === cartId);
+            return producto?.categoria === "abono" ? [{ productoId: producto.productoId, unidadVendida: producto.unidad, cantidad }] : [];
+          }),
+          nombres: cliente ? null : datosInvitado.nombres,
+          apellidos: cliente ? null : datosInvitado.apellidos,
+          dni: cliente ? null : datosInvitado.dni,
+          telefono: cliente ? null : datosInvitado.telefono,
+          email: cliente ? null : datosInvitado.email || null,
+          direccion: cliente ? null : datosInvitado.direccion || "",
         },
       });
-      setPedidoCreado(dp.crearPedido);
+      setPedidoCreado(dp.crearPedidoCliente);
     } catch (err) {
       setError(err.message);
     }
@@ -140,9 +195,9 @@ export default function HacerPedido() {
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-3xl font-black text-dark mb-2">¡Pedido recibido!</h1>
           <p className="text-gray-600 mb-6">
-            Tu pedido <strong>#{pedidoCreado.id}</strong> por un total de{" "}
-            <strong>Bs. {parseFloat(pedidoCreado.total).toFixed(2)}</strong> fue registrado.
-            Nos pondremos en contacto para coordinar la entrega.
+            {pedidoCreado.pedidoHuevos && <>Pedido de huevos <strong>#{pedidoCreado.pedidoHuevos.id}</strong>. </>}
+            {pedidoCreado.pedidoAbono && <>Pedido de abono <strong>#{pedidoCreado.pedidoAbono.numero}</strong>. </>}
+            Total: <strong>Bs. {parseFloat(pedidoCreado.total).toFixed(2)}</strong>. Recibimos tu solicitud y coordinaremos la entrega.
           </p>
           <div className="flex gap-3 justify-center">
             <Link to="/" className="btn-secondary">Volver al inicio</Link>
@@ -168,54 +223,32 @@ export default function HacerPedido() {
           {cliente ? `Pedido como ${cliente.nombres}` : "Puedes pedir como invitado o crear una cuenta después"}
         </p>
 
+        {!cliente && granjasActivas.length > 1 && (
+          <div className="max-w-lg mb-6">
+            <label className="block text-sm font-bold text-gray-700 mb-1">Granja de tu pedido</label>
+            <select className="input-field" value={granjaId || ""} onChange={(e) => { setGranjaSeleccionada(e.target.value); setCarrito({}); }}>
+              {granjasActivas.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+            </select>
+          </div>
+        )}
+        {cliente && granja && <p className="text-sm text-gray-500 mb-5">Productos de: <strong>{granja.nombre}</strong></p>}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-xl font-black text-dark">1. Elige tus productos</h2>
-            {loading ? (
+            {loading || cargandoAbono ? (
               <p className="text-gray-500">Cargando...</p>
-            ) : productos.length === 0 ? (
-              <p className="text-gray-500">No hay productos disponibles.</p>
             ) : (
-              productos.map((p) => {
-                const cant = carrito[p.id] || 0;
-                const esAbono = p.tipo === "abono";
-                return (
-                  <div key={p.id} className="card flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={esAbono ? "badge-success" : "badge-warning"}>
-                          {esAbono ? "🌱 Abono" : "🥚 Huevo"}
-                        </span>
-                        <span className="text-xs text-gray-500">{p.calidad}</span>
-                      </div>
-                      <h3 className="font-bold text-dark">{p.nombre}</h3>
-                      <p className="text-sm text-gray-500">
-                        {p.presentacion.replace("_", " ")} · Stock: {parseFloat(p.stock).toFixed(0)} {p.unidadMedida}
-                      </p>
-                      <p className="text-lg font-black text-brand-700 mt-1">
-                        Bs. {parseFloat(p.precioUnitario).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => cambiar(p.id, -1)}
-                        className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 font-black text-lg"
-                      >
-                        −
-                      </button>
-                      <span className="w-10 text-center font-black">{cant}</span>
-                      <button
-                        type="button"
-                        onClick={() => cambiar(p.id, 1)}
-                        className="w-9 h-9 rounded-lg bg-brand-100 hover:bg-brand-200 font-black text-lg"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+              <div className="space-y-5">
+                <section className="space-y-3">
+                  <h3 className="text-lg font-black text-dark">Huevos</h3>
+                  {huevos.length ? huevos.map(renderProducto) : <p className="text-sm text-gray-500">No hay huevos disponibles en esta granja.</p>}
+                </section>
+                <section className="space-y-3">
+                  <h3 className="text-lg font-black text-dark">Abono</h3>
+                  {abonos.length ? abonos.map(renderProducto) : <p className="card py-6 text-center text-sm text-gray-500">No hay abono con existencias disponibles en esta granja. El administrador debe registrar una entrada de stock en kilogramos para el producto.</p>}
+                </section>
+              </div>
             )}
           </div>
 
@@ -227,13 +260,13 @@ export default function HacerPedido() {
               ) : (
                 <ul className="space-y-2 mb-4 text-sm">
                   {items.map(([id, cant]) => {
-                    const prod = productos.find((p) => p.id === id);
+                    const prod = productos.find((p) => p.cartId === id);
                     if (!prod) return null;
                     return (
                       <li key={id} className="flex justify-between">
-                        <span>{cant}× {prod.nombre}</span>
+                        <span>{cant}× {prod.nombre}{prod.categoria === "abono" ? ` (${prod.unidad})` : ""}</span>
                         <span className="font-bold">
-                          Bs. {(parseFloat(prod.precioUnitario) * cant).toFixed(2)}
+                          Bs. {(prod.precio * cant).toFixed(2)}
                         </span>
                       </li>
                     );

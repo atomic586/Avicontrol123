@@ -17,6 +17,7 @@ export default function MisPedidos() {
   if (!cliente) return <Navigate to="/login" replace />;
 
   const pedidos = data?.misPedidos ?? [];
+  const ventasAbono = data?.misVentasAbono ?? [];
 
   return (
     <LayoutPublico>
@@ -31,13 +32,13 @@ export default function MisPedidos() {
           <ShoppingCart className="w-4 h-4" /> Hacer un pedido
         </Link>
 
-        {loading ? <p>Cargando...</p> : pedidos.length === 0 ? (
+        {loading ? <p>Cargando...</p> : pedidos.length === 0 && ventasAbono.length === 0 ? (
           <div className="card text-center py-12">
             <HuevoMascota className="huevo-mascota--compacto" />
             <p className="text-gray-500">Aún no tienes pedidos.</p>
             <Link to="/hacer-pedido" className="btn-primary mt-4 inline-flex">Hacer mi primer pedido</Link>
           </div>
-        ) : (
+        ) : pedidos.length > 0 ? (
           <div className="space-y-3">
             {pedidos.map(p => (
               <div key={p.id} className="card">
@@ -54,6 +55,29 @@ export default function MisPedidos() {
               </div>
             ))}
           </div>
+        ) : null}
+
+        {ventasAbono.length > 0 && (
+          <section className="mt-8 space-y-3">
+            <h2 className="text-xl font-black text-dark">Mis pedidos de abono</h2>
+            {ventasAbono.map((venta) => (
+              <article key={venta.id} className="card">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <p className="font-black text-dark">Pedido de abono #{venta.numero}</p>
+                    <p className="text-sm text-gray-500">{new Date(`${venta.fecha}T12:00:00`).toLocaleDateString("es-BO")}</p>
+                  </div>
+                  <span className="badge-info">{venta.estado}</span>
+                </div>
+                <div className="my-3 space-y-1 text-sm text-gray-600">
+                  {venta.detalles.map((detalle) => (
+                    <p key={detalle.id}>{detalle.producto.nombre}: {Number(detalle.cantidad)} {detalle.unidadVendida}</p>
+                  ))}
+                </div>
+                <p className="text-xl font-black text-brand-700">Bs. {Number(venta.total).toFixed(2)}</p>
+              </article>
+            ))}
+          </section>
         )}
       </div>
     </LayoutPublico>

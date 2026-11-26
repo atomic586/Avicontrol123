@@ -103,5 +103,19 @@ export const MIS_PEDIDOS = gql`
       fechaPedido
       creadoEn
     }
+    misVentasAbono {
+      id
+      numero
+      fecha
+      total
+      estado
+      nombreCliente
+      detalles {
+        id
+        cantidad
+        unidadVendida
+        producto { nombre }
+      }
+    }
   }
 `;
