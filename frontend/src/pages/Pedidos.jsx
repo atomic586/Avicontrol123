@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { Link } from "react-router-dom";
-import { ShoppingCart, Plus, ArrowRight } from "lucide-react";
+import { ShoppingCart, Plus, Search } from "lucide-react";
 import {
   PEDIDOS_QUERY,
   CREAR_PEDIDO,
@@ -39,9 +39,13 @@ export default function Pedidos() {
   const [error, setError] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [vistaPedidos, setVistaPedidos] = useState("huevos");
+  const [busquedaPedido, setBusquedaPedido] = useState("");
+  const [pedidoActualizando, setPedidoActualizando] = useState(null);
+  const [errorEstado, setErrorEstado] = useState("");
+  const [mensajeEstado, setMensajeEstado] = useState("");
 
   const { data, loading, error: qError, refetch } = useQuery(PEDIDOS_QUERY, {
-    variables: { estado: estadoFiltro || null },
+    variables: { estado: null },
     fetchPolicy: "network-only",
   });
   const { data: abonoData, loading: cargandoAbono, error: errorAbono } = useQuery(VENTAS_GALLINAZA_QUERY, {
@@ -51,7 +55,7 @@ export default function Pedidos() {
   const { data: dataProductos } = useQuery(PRODUCTOS_QUERY);
 
   const [crearPedido, { loading: creando }] = useMutation(CREAR_PEDIDO);
-  const [cambiarEstado] = useMutation(CAMBIAR_ESTADO_PEDIDO);
+  const [cambiarEstado, { loading: cambiandoEstado }] = useMutation(CAMBIAR_ESTADO_PEDIDO);
 
   const abrirModal = () => {
     setClienteId("");
@@ -99,20 +103,33 @@ export default function Pedidos() {
   };
 
   const onCambiarEstado = async (id, estado) => {
+    if (estado === "anulado" && !window.confirm(`¿Anular el pedido #${id}?`)) return;
+    setPedidoActualizando(id);
+    setErrorEstado("");
+    setMensajeEstado("");
     try {
       await cambiarEstado({ variables: { id, estado } });
-      refetch();
+      await refetch();
+      setMensajeEstado(`El pedido #${id} ahora está ${ESTADOS.find((item) => item.value === estado)?.label.toLowerCase() || estado}.`);
     } catch (err) {
-      alert(err.message);
+      setErrorEstado(err.message);
+    } finally {
+      setPedidoActualizando(null);
     }
   };
 
-  const pedidos = data?.pedidos ?? [];
+  const todosPedidos = data?.pedidos ?? [];
+  const pedidos = estadoFiltro ? todosPedidos.filter((pedido) => pedido.estado === estadoFiltro) : todosPedidos;
   const ventasAbono = abonoData?.ventasGallinaza ?? [];
   const agrupados = ESTADOS.reduce((acc, e) => {
-    acc[e.value] = pedidos.filter((p) => p.estado === e.value);
+    acc[e.value] = todosPedidos.filter((p) => p.estado === e.value);
     return acc;
   }, {});
+  const terminoBusqueda = busquedaPedido.trim().toLocaleLowerCase("es");
+  const pedidosVisibles = pedidos.filter((pedido) => {
+    const nombre = `${pedido.cliente?.nombres ?? ""} ${pedido.cliente?.apellidos ?? ""}`.toLocaleLowerCase("es");
+    return !terminoBusqueda || nombre.includes(terminoBusqueda) || String(pedido.id).includes(terminoBusqueda) || (pedido.cliente?.dni ?? "").toLocaleLowerCase("es").includes(terminoBusqueda);
+  });
 
   return (
     <div className="space-y-6">
@@ -140,7 +157,7 @@ export default function Pedidos() {
 
       <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3" role="tablist" aria-label="Tipo de pedidos">
         {[
-          { key: "huevos", label: `Pedidos de huevos (${pedidos.length})` },
+          { key: "huevos", label: `Pedidos de huevos (${todosPedidos.length})` },
           { key: "abono", label: `Pedidos de abono (${ventasAbono.length})` },
         ].map((vista) => (
           <button
@@ -163,65 +180,75 @@ export default function Pedidos() {
       )}
 
       {vistaPedidos === "huevos" ? <>
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setEstadoFiltro("")}
-          className={"px-4 py-2 rounded-xl font-bold text-sm " + (estadoFiltro === "" ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200")}
-        >
-          Todos ({pedidos.length})
-        </button>
-        {ESTADOS.map((e) => (
+      <div className="card flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
           <button
-            key={e.value}
-            onClick={() => setEstadoFiltro(e.value)}
-            className={"px-4 py-2 rounded-xl font-bold text-sm " + (estadoFiltro === e.value ? "bg-brand-500 text-white" : "bg-white text-gray-600 border border-gray-200")}
-          >
-            {e.label} ({agrupados[e.value]?.length || 0})
-          </button>
-        ))}
+            onClick={() => setEstadoFiltro("")}
+            className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${estadoFiltro === "" ? "bg-brand-500 text-white" : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+          >Todos <span className={estadoFiltro === "" ? "ml-1 opacity-80" : "ml-1 text-gray-400"}>{todosPedidos.length}</span></button>
+          {ESTADOS.map((estado) => (
+            <button
+              key={estado.value}
+              onClick={() => setEstadoFiltro(estado.value)}
+              className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${estadoFiltro === estado.value ? "bg-brand-500 text-white" : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}
+            >
+              {estado.label} <span className={estadoFiltro === estado.value ? "ml-1 opacity-80" : "ml-1 text-gray-400"}>{agrupados[estado.value]?.length || 0}</span>
+            </button>
+          ))}
+        </div>
+        <label className="relative block w-full lg:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input className="input-field py-2 pl-9" value={busquedaPedido} onChange={(event) => setBusquedaPedido(event.target.value)} placeholder="Buscar pedido o cliente" aria-label="Buscar pedido o cliente" />
+        </label>
       </div>
+
+      {errorEstado && <div role="alert" className="card border border-red-200 bg-red-50 p-3 text-sm text-red-700">No se pudo actualizar el pedido: {errorEstado}</div>}
+      {mensajeEstado && <div role="status" className="card border border-green-200 bg-green-50 p-3 text-sm text-green-700">{mensajeEstado}</div>}
 
       {loading ? (
         <div className="card text-center py-12 text-gray-500">Cargando pedidos...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ESTADOS.map((e) => (
-            <div key={e.value} className="card p-4 bg-gray-50">
-              <div className={"inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 " + e.color}>{e.label}</div>
-              <div className="space-y-2">
-                {(agrupados[e.value] || []).length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">Sin pedidos</p>
-                ) : (
-                  agrupados[e.value].map((p) => (
-                    <div key={p.id} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-sm text-dark">{p.cliente.nombres} {p.cliente.apellidos}</p>
-                          <p className="text-xs text-gray-500">{p.cliente.dni}</p>
-                        </div>
-                        <span className="text-xs font-black text-brand-700">Bs. {parseFloat(p.total).toFixed(2)}</span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2">{new Date(p.fechaPedido).toLocaleDateString("es-BO")}</p>
-                      {puedeEditar && (
-                        <div className="flex gap-1 mt-2 flex-wrap">
-                          {ESTADOS.filter((s) => s.value !== p.estado && s.value !== "anulado").map((s) => (
-                            <button
-                              key={s.value}
-                              onClick={() => onCambiarEstado(p.id, s.value)}
-                              className="text-xs font-bold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded"
-                            >
-                              <ArrowRight className="w-3 h-3 inline" /> {s.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+        <section className="card overflow-hidden p-0">
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+            <p className="text-sm font-bold text-gray-500">{pedidosVisibles.length} {pedidosVisibles.length === 1 ? "pedido" : "pedidos"}</p>
+            <p className="hidden text-xs font-semibold text-gray-400 sm:block">Ordenados del más reciente</p>
+          </div>
+          {pedidosVisibles.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-gray-500">{terminoBusqueda ? "No se encontraron pedidos con esa búsqueda." : "No hay pedidos en este estado."}</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {pedidosVisibles.map((pedido) => {
+                const estado = ESTADOS.find((item) => item.value === pedido.estado);
+                return (
+                  <article key={pedido.id} className="grid grid-cols-1 gap-3 px-4 py-3 transition-colors hover:bg-gray-50/70 sm:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.8fr)_minmax(120px,0.8fr)_minmax(110px,0.7fr)_minmax(150px,0.9fr)] sm:items-center sm:gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-dark">{pedido.cliente?.nombres} {pedido.cliente?.apellidos}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">Pedido #{pedido.id}{pedido.cliente?.dni ? ` · CI ${pedido.cliente.dni}` : ""}</p>
                     </div>
-                  ))
-                )}
-              </div>
+                    <div><span className="text-[10px] font-bold uppercase text-gray-400 sm:hidden">Fecha · </span><span className="text-sm text-gray-600">{new Date(`${pedido.fechaPedido}T00:00:00`).toLocaleDateString("es-BO")}</span></div>
+                    <div><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${estado?.color || "bg-gray-100 text-gray-700"}`}>{estado?.label || pedido.estado}</span></div>
+                    <div className="font-black text-brand-700">Bs. {Number(pedido.total).toFixed(2)}</div>
+                    {puedeEditar ? (
+                      <label className="flex items-center gap-2 sm:justify-end">
+                        <span className="text-xs font-semibold text-gray-400 sm:sr-only">Cambiar estado</span>
+                        <select
+                          className="input-field min-w-0 py-2 text-sm sm:max-w-40"
+                          value={pedido.estado}
+                          disabled={cambiandoEstado && pedidoActualizando === pedido.id}
+                          onChange={(event) => onCambiarEstado(pedido.id, event.target.value)}
+                          aria-label={`Cambiar estado del pedido ${pedido.id}`}
+                        >
+                          {ESTADOS.map((opcion) => <option key={opcion.value} value={opcion.value}>{opcion.label}</option>)}
+                        </select>
+                      </label>
+                    ) : <span className="text-xs text-gray-400">Solo consulta</span>}
+                    {cambiandoEstado && pedidoActualizando === pedido.id && <span className="text-xs text-gray-400 sm:col-span-5">Guardando cambio…</span>}
+                  </article>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          )}
+        </section>
       )}
       </> :
       <section className="space-y-3">

@@ -1795,6 +1795,29 @@ class Mutation:
             .get(pk=pedido.pk)
         )
 
+    @strawberry.mutation
+    def cambiar_estado_entrega(
+        self, info: Info, id: strawberry.ID, estado_entrega: str,
+    ) -> Optional[PedidoCompletoType]:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_ventas"])
+        estados_validos = {estado for estado, _ in Pedido.ESTADOS_ENTREGA}
+        if estado_entrega not in estados_validos:
+            raise ValueError(f"Estado de entrega inválido: {estado_entrega}")
+
+        pedido = Pedido.objects.filter(pk=id).first()
+        if not pedido:
+            return None
+        if pedido.estado == "anulado":
+            raise ValueError("No se puede actualizar la entrega de un pedido anulado.")
+
+        pedido.estado_entrega = estado_entrega
+        pedido.save(update_fields=["estado_entrega"])
+        return (
+            Pedido.objects.select_related("cliente")
+            .prefetch_related("detalles__producto")
+            .get(pk=pedido.pk)
+        )
+
     # ---- VENTAS ----
     @strawberry.mutation
     def registrar_venta(

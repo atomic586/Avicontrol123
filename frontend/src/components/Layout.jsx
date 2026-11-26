@@ -28,10 +28,16 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const rutaProduccionActiva = location.pathname.startsWith("/produccion") || location.pathname.startsWith("/abono");
   const [produccionOpen, setProduccionOpen] = useState(rutaProduccionActiva);
+  const rutaComercializacionActiva = ["/pedidos", "/entregas", "/clientes", "/ventas"].some((path) => location.pathname.startsWith(path));
+  const [comercializacionOpen, setComercializacionOpen] = useState(rutaComercializacionActiva);
 
   useEffect(() => {
     if (rutaProduccionActiva) setProduccionOpen(true);
   }, [rutaProduccionActiva]);
+
+  useEffect(() => {
+    if (rutaComercializacionActiva) setComercializacionOpen(true);
+  }, [rutaComercializacionActiva]);
 
   const handleLogout = () => {
     cerrarSesion();
@@ -88,10 +94,18 @@ export default function Layout({ children }) {
     { 
       grupo: "Comercialización", 
       items: [
-        { name: "Pedidos", path: "/pedidos", icon: ShoppingCart, show: esSuperadmin || esAdminGranja || esVentas },
-        { name: "Entregas", path: "/entregas", icon: Truck, show: esSuperadmin || esAdminGranja || esVentas },
-        { name: "Clientes", path: "/clientes", icon: Users, show: esSuperadmin || esAdminGranja || esVentas },
-        { name: "Ventas", path: "/ventas", icon: DollarSign, show: esSuperadmin || esAdminGranja || esVentas },
+        {
+          name: "Comercialización",
+          key: "comercializacion",
+          icon: ShoppingCart,
+          show: esSuperadmin || esAdminGranja || esVentas,
+          children: [
+            { name: "Pedidos", path: "/pedidos", icon: ShoppingCart },
+            { name: "Entregas", path: "/entregas", icon: Truck },
+            { name: "Clientes", path: "/clientes", icon: Users },
+            { name: "Ventas", path: "/ventas", icon: DollarSign },
+          ],
+        },
       ]
     },
     { 
@@ -158,24 +172,27 @@ export default function Layout({ children }) {
                     if (item.children) {
                       const childrenVisibles = item.children;
                       const grupoActivo = childrenVisibles.some(rutaHijaActiva);
+                      const submenuOpen = item.key === "comercializacion" ? comercializacionOpen : produccionOpen;
+                      const setSubmenuOpen = item.key === "comercializacion" ? setComercializacionOpen : setProduccionOpen;
+                      const submenuId = `submenu-${item.key || "produccion"}`;
                       const GrupoIcon = item.icon;
                       return (
                         <div key={item.name}>
                           <button
                             type="button"
-                            onClick={() => setProduccionOpen((abierto) => !abierto)}
-                            aria-expanded={produccionOpen}
-                            aria-controls="submenu-produccion"
+                            onClick={() => setSubmenuOpen((abierto) => !abierto)}
+                            aria-expanded={submenuOpen}
+                            aria-controls={submenuId}
                             className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all font-bold text-sm ${
                               grupoActivo ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-md shadow-orange-500/20" : "text-gray-400 hover:bg-white/5 hover:text-white"
                             }`}
                           >
                             <GrupoIcon className={`w-5 h-5 mr-3 ${grupoActivo ? "text-white" : "text-gray-400"}`} strokeWidth={grupoActivo ? 2.5 : 2} />
                             <span className="flex-1 text-left">{item.name}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${produccionOpen ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-4 h-4 transition-transform ${submenuOpen ? "rotate-180" : ""}`} />
                           </button>
-                          {produccionOpen && (
-                            <div id="submenu-produccion" className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
+                          {submenuOpen && (
+                            <div id={submenuId} className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
                               {childrenVisibles.map((child) => {
                                 const childActive = rutaHijaActiva(child);
                                 const ChildIcon = child.icon;
