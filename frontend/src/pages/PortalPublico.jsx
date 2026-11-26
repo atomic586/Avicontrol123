@@ -17,11 +17,12 @@ const GRANJAS_PUBLICAS = gql`
 
 const CONFIG_QUERY = gql`
   query ConfigPublica($granjaId: ID) {
-    configuracionTienda {
+    configuracionTienda(granjaId: $granjaId) {
       heroTitulo
       heroSubtitulo
       heroCtaTexto
       heroImagenUrl
+      heroImagenUrlEfectiva
       telefonoContacto
     }
   }
@@ -44,13 +45,23 @@ const CATALOGO_PUBLICO = gql`
 
 export default function PortalPublico() {
   const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, { fetchPolicy: "network-only" });
-  const { data: dataConfig } = useQuery(CONFIG_QUERY, { fetchPolicy: "network-only" });
-  const { data: dataProductos, loading } = useQuery(CATALOGO_PUBLICO, { fetchPolicy: "network-only" });
-
   const granjas = dataGranjas?.granjas ?? [];
   const granjaPrincipal = granjas[0];
+  const { data: dataConfig } = useQuery(CONFIG_QUERY, {
+    variables: { granjaId: granjaPrincipal?.id || null },
+    fetchPolicy: "network-only",
+  });
+  const { data: dataProductos, loading } = useQuery(CATALOGO_PUBLICO, { fetchPolicy: "network-only" });
 
   const c = dataConfig?.configuracionTienda;
+  const imagenHero = c?.heroImagenUrlEfectiva || c?.heroImagenUrl || "";
+  const estiloHero = imagenHero
+    ? {
+        backgroundImage: `linear-gradient(90deg, rgba(15,23,42,0.78), rgba(15,23,42,0.35)), url(${JSON.stringify(imagenHero)})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : undefined;
   const productos = (dataProductos?.productos ?? []).filter((p) => parseFloat(p.stock) > 0);
   const productosHuevo = productos.filter((p) => p.tipo === "huevo");
   const productosAbono = productos.filter((p) => p.tipo === "abono");
@@ -58,15 +69,18 @@ export default function PortalPublico() {
 
   return (
     <LayoutPublico>
-      <section className="bg-gradient-to-br from-brand-500 to-brand-600 text-white">
+      <section
+        className={`text-white ${imagenHero ? "" : "bg-gradient-to-br from-brand-500 to-brand-600"}`}
+        style={estiloHero}
+      >
         <div className="max-w-6xl mx-auto px-6 py-20">
           <p className="text-xs font-bold uppercase tracking-widest opacity-90 mb-3">
             {granjaPrincipal?.nombre || "Granja Avícola AVICONTROL"}
           </p>
-          <h1 className="text-4xl md:text-6xl font-black leading-tight mb-6 max-w-3xl">
+          <h1 className="text-4xl md:text-6xl font-black leading-tight mb-6 max-w-3xl break-words">
             {c?.heroTitulo || "Huevos frescos para tu hogar."}
           </h1>
-          <p className="text-lg opacity-95 max-w-2xl mb-8">
+          <p className="text-lg opacity-95 max-w-2xl mb-8 break-words whitespace-pre-wrap">
             {c?.heroSubtitulo || "Elige la calidad y la cantidad que necesitas."}
           </p>
           <div className="flex flex-wrap gap-3">

@@ -3,6 +3,8 @@ Rutas del proyecto AVICONTROL.
 Expone el panel /admin y el endpoint GraphQL en /graphql/.
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
@@ -12,5 +14,10 @@ from avicontrol.graphql.schema import schema
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("graphql/", csrf_exempt(GraphQLView.as_view(schema=schema))),
-]
+    path(
+        "graphql/",
+        csrf_exempt(
+            GraphQLView.as_view(schema=schema, multipart_uploads_enabled=True)
+        ),
+    ),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

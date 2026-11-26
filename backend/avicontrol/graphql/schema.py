@@ -9,13 +9,18 @@ import strawberry_django
 from typing import Optional, List
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 import secrets
+from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.core.validators import URLValidator
 from django.db import transaction
 from django.db.models import Sum, Count, Q, F
 from django.utils import timezone
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
 from strawberry.types import Info
+from strawberry.file_uploads.scalars import Upload
 
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
@@ -177,6 +182,55 @@ class EstadisticasGranjaType:
 
 def _digitos(valor: str) -> str:
     return re.sub(r"\D", "", valor or "")
+
+
+MAX_IMAGEN_HERO_BYTES = 5 * 1024 * 1024
+FORMATOS_IMAGEN_HERO = (
+    ("image/jpeg", b"\xff\xd8\xff", "jpg"),
+    ("image/png", b"\x89PNG\r\n\x1a\n", "png"),
+    ("image/webp", b"RIFF", "webp"),
+)
+
+
+def _preparar_imagen_hero(archivo) -> ContentFile:
+    if not hasattr(archivo, "read"):
+        raise ValueError("El archivo enviado no es una imagen válida.")
+
+    contenido = archivo.read(MAX_IMAGEN_HERO_BYTES + 1)
+    if not contenido:
+        raise ValueError("El archivo de imagen está vacío.")
+    if len(contenido) > MAX_IMAGEN_HERO_BYTES:
+        raise ValueError("La imagen no debe superar los 5 MB.")
+
+    tipo = getattr(archivo, "content_type", "") or ""
+    cabecera = contenido[:16]
+    formato = None
+    for mime, firma, extension in FORMATOS_IMAGEN_HERO:
+        if not cabecera.startswith(firma):
+            continue
+        if extension == "webp" and cabecera[8:12] != b"WEBP":
+            continue
+        tipos_aceptados = {mime, "image/jpg"} if extension == "jpg" else {mime}
+        if not tipo or tipo in tipos_aceptados:
+            formato = extension
+            break
+    if formato is None:
+        raise ValueError("Formato no admitido. Usa una imagen JPG, PNG o WebP.")
+
+    return ContentFile(contenido, name=f"hero-{uuid4().hex}.{formato}")
+
+
+def _validar_url_imagen_hero(valor: str) -> Optional[str]:
+    valor = (valor or "").strip()
+    if not valor:
+        return None
+    try:
+        URLValidator(schemes=["http", "https"])(valor)
+    except ValidationError:
+        raise ValueError("La URL de la imagen debe comenzar con http:// o https://.")
+    if len(valor) > 200:
+        raise ValueError("La URL de la imagen no puede superar los 200 caracteres.")
+    return valor
 
 
 @strawberry.type
@@ -591,8 +645,15 @@ class Query:
 
     # ---- CONFIGURACIÓN DE LA TIENDA ----
     @strawberry.field
-    def configuracion_tienda(self) -> ConfiguracionTiendaType:
-        return ConfiguracionTienda.get_solo()
+    def configuracion_tienda(
+        self, info: Info, granja_id: Optional[strawberry.ID] = None
+    ) -> ConfiguracionTiendaType:
+        granja = None
+        if granja_id:
+            granja = Granja.objects.filter(pk=granja_id, activo=True).first()
+        if granja is None:
+            granja = _granja_por_defecto(info)
+        return ConfiguracionTienda.get_solo(granja)
 
     # ============================================================
     # MÓDULO DE GALLINAZA (ABONO)
@@ -1733,11 +1794,29 @@ class Mutation:
         hero_subtitulo: Optional[str] = None,
         hero_cta_texto: Optional[str] = None,
         hero_imagen_url: Optional[str] = None,
+        hero_imagen: Optional[Upload] = None,
+        limpiar_hero_imagen: bool = False,
         nombre_granja: Optional[str] = None,
         telefono_contacto: Optional[str] = None,
     ) -> ConfiguracionTiendaType:
         requerir_rol(info, ["superadmin", "admin_granja"])
-        config = ConfiguracionTienda.get_solo()
+        config = ConfiguracionTienda.get_solo(_granja_por_defecto(info))
+
+        if hero_titulo is not None:
+            hero_titulo = hero_titulo.strip()
+            if not hero_titulo:
+                raise ValueError("El título del hero es obligatorio.")
+            if len(hero_titulo) > 200:
+                raise ValueError("El título del hero no puede superar los 200 caracteres.")
+        if hero_cta_texto is not None and len(hero_cta_texto) > 80:
+            raise ValueError("El texto del botón no puede superar los 80 caracteres.")
+        if telefono_contacto is not None and len(telefono_contacto) > 30:
+            raise ValueError("El teléfono no puede superar los 30 caracteres.")
+
+        url_imagen = None
+        if hero_imagen_url is not None:
+            url_imagen = _validar_url_imagen_hero(hero_imagen_url)
+
         if nombre_granja is not None and nombre_granja != config.granja.nombre:
             if Granja.objects.filter(nombre=nombre_granja).exclude(
                 pk=config.granja_id
@@ -1745,16 +1824,28 @@ class Mutation:
                 raise ValueError("Ya existe una granja con ese nombre.")
             config.granja.nombre = nombre_granja
             config.granja.save(update_fields=["nombre"])
+
+        imagen_anterior = config.hero_imagen
         for campo, valor in [
             ("hero_titulo", hero_titulo),
             ("hero_subtitulo", hero_subtitulo),
             ("hero_cta_texto", hero_cta_texto),
-            ("hero_imagen_url", hero_imagen_url),
             ("telefono_contacto", telefono_contacto),
         ]:
             if valor is not None:
                 setattr(config, campo, valor)
+        if hero_imagen_url is not None:
+            config.hero_imagen_url = url_imagen
+        if hero_imagen is not None:
+            config.hero_imagen = _preparar_imagen_hero(hero_imagen)
+        elif limpiar_hero_imagen:
+            config.hero_imagen = None
+
         config.save()
+        if imagen_anterior and (
+            not config.hero_imagen or imagen_anterior.name != config.hero_imagen.name
+        ):
+            imagen_anterior.delete(save=False)
         return config
 
     # ============================================================
