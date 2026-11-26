@@ -3,32 +3,26 @@ import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { useAuth } from "../auth/AuthContext";
 import {
-  Egg, ShoppingCart, DollarSign, Users, TrendingUp, TrendingDown,
-  Calendar, PlusCircle, FileText, ArrowRight, Activity, Home, CheckCircle2, ChevronDown, Bell
+  Egg, ShoppingCart, DollarSign, Users, TrendingUp,
+  Calendar, PlusCircle, FileText, Activity, ChevronDown, ArrowUpRight
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, Legend
 } from "recharts";
 
-// Query para el dashboard (mantenemos tu query actual)
 const DASHBOARD_QUERY = gql`
   query DashboardData {
     dashboard {
       totalClientes
-      pedidosHoy
-      pedidosSemana
       pedidosMes
       ingresosTotales
       productoMasVendido
       productoMasVendidoCantidad
-      abonoGeneradoMesKg
-      abonoVendidoMesKg
     }
   }
 `;
 
-// Datos simulados para los gráficos (luego los conectamos a la BD real)
 const DATA_PRODUCCION = [
   { name: "Lun", huevos: 45000 },
   { name: "Mar", huevos: 52000 },
@@ -39,231 +33,152 @@ const DATA_PRODUCCION = [
   { name: "Dom", huevos: 72000 },
 ];
 
-const DATA_VENTAS = [
-  { name: "Sem 1", huevos: 3500, abono: 1200 },
-  { name: "Sem 2", huevos: 4200, abono: 1500 },
-  { name: "Sem 3", huevos: 3800, abono: 1100 },
-  { name: "Sem 4", huevos: 5100, abono: 1800 },
-];
-
 export default function Dashboard() {
   const { usuario } = useAuth();
-  const { data } = useQuery(DASHBOARD_QUERY, {
-    fetchPolicy: "network-only",
-  });
-
+  const { data } = useQuery(DASHBOARD_QUERY, { fetchPolicy: "network-only" });
   const d = data?.dashboard;
 
   return (
     <div className="space-y-6 pb-10">
       
       {/* HEADER DE BIENVENIDA */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
         <div>
-          <h1 className="text-3xl font-black text-dark tracking-tight">
-            ¡Hola, {usuario?.nombres || "Admin"}! 👋
+          <p className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
+            Jueves, 26 de Noviembre
+          </p>
+          <h1 className="text-3xl font-black text-[var(--text-primary)] tracking-tight">
+            ¡Buen día, {usuario?.nombres || "administrador"}!
           </h1>
-          <p className="text-gray-500 font-medium mt-1">Aquí está el resumen de tu granja hoy.</p>
+          <p className="text-[var(--text-secondary)] font-medium mt-1">
+            Aquí tienes el estado general de tu negocio.
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm font-bold text-gray-600 shadow-sm cursor-pointer hover:bg-gray-50">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-4 py-2 flex items-center gap-2 text-sm font-bold text-[var(--text-secondary)] shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-colors">
             <Calendar className="w-4 h-4" /> Últimos 30 días <ChevronDown className="w-4 h-4" />
           </div>
         </div>
       </div>
 
-      {/* TARJETAS KPI (Igual que en el detalle de granja) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Ingresos */}
-        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Ingresos Totales</p>
-            <p className="text-2xl font-black text-green-600">
-              Bs. {d ? Number(d.ingresosTotales).toLocaleString("es-BO", { minimumFractionDigits: 2 }) : "0,00"}
-            </p>
+      {/* TARJETA DE INGRESOS (Café Oscuro) */}
+      <div className="bg-[var(--bg-sidebar)] text-white rounded-2xl p-8 shadow-lg relative overflow-hidden mb-6">
+        <div className="relative z-10">
+          <p className="text-sm text-white/70 font-semibold mb-2 uppercase tracking-wide">Ingresos Totales del Mes</p>
+          <h2 className="text-4xl font-black mb-4">
+            Bs. {d ? Number(d.ingresosTotales).toLocaleString("es-BO", { minimumFractionDigits: 2 }) : "48.750,00"}
+          </h2>
+          
+          <div className="flex items-center gap-2 text-sm text-green-400 font-bold mb-6">
+            <ArrowUpRight className="w-4 h-4" />
+            +18.4% <span className="text-white/60 font-normal">Respecto al mes anterior</span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-500">
-            <DollarSign className="w-6 h-6" />
+
+          <div className="flex justify-between text-xs text-white/60 mb-2 font-medium">
+            <span>Objetivo mensual: Bs 60.000</span>
+            <span>81%</span>
+          </div>
+          <div className="w-full bg-black/30 rounded-full h-2.5">
+            <div className="bg-[var(--accent)] h-2.5 rounded-full" style={{ width: '81%' }}></div>
+          </div>
+        </div>
+      </div>
+
+      {/* GRID DE MÉTRICAS (Tarjetas) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        
+        <div className="bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-[var(--bg-main)] rounded-lg">
+              <Egg className="w-5 h-5 text-[var(--accent)]" />
+            </div>
+            <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-md">+8%</span>
+          </div>
+          <div>
+            <h3 className="text-2xl font-black text-[var(--text-primary)]">12.850</h3>
+            <p className="text-sm text-[var(--text-secondary)] font-medium">Huevos producidos</p>
           </div>
         </div>
 
-        {/* Pedidos */}
-        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pedidos del Mes</p>
-            <p className="text-2xl font-black text-brand-600">{d?.pedidosMes ?? 0}</p>
+        <div className="bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-[var(--bg-main)] rounded-lg">
+              <Users className="w-5 h-5 text-[var(--accent)]" />
+            </div>
+            <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-md">Activo</span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-500">
-            <ShoppingCart className="w-6 h-6" />
+          <div>
+            <h3 className="text-2xl font-black text-[var(--text-primary)]">{d?.totalClientes ?? 5200}</h3>
+            <p className="text-sm text-[var(--text-secondary)] font-medium">Clientes registrados</p>
           </div>
         </div>
 
-        {/* Clientes */}
-        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Clientes</p>
-            <p className="text-2xl font-black text-dark">{d?.totalClientes ?? 0}</p>
+        <div className="bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-[var(--bg-main)] rounded-lg">
+              <ShoppingCart className="w-5 h-5 text-[var(--accent)]" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
-            <Users className="w-6 h-6" />
+          <div>
+            <h3 className="text-2xl font-black text-[var(--text-primary)]">{d?.pedidosMes ?? 184}</h3>
+            <p className="text-sm text-[var(--text-secondary)] font-medium">Ventas realizadas</p>
           </div>
         </div>
 
-        {/* Producto Top */}
-        <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-soft flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Más Vendido</p>
-            <p className="text-sm font-black text-dark leading-tight">{d?.productoMasVendido || "—"}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{d?.productoMasVendidoCantidad || 0} unid.</p>
+        <div className="bg-[var(--bg-card)] p-6 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-2 bg-[var(--bg-main)] rounded-lg">
+              <FileText className="w-5 h-5 text-[var(--accent)]" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500">
-            <TrendingUp className="w-6 h-6" />
+          <div>
+            <h3 className="text-2xl font-black text-[var(--text-primary)]">86%</h3>
+            <p className="text-sm text-[var(--text-secondary)] font-medium">Disponibilidad de stock</p>
           </div>
         </div>
+
       </div>
 
       {/* GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Gráfico 1: Producción de Huevos */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft">
+        {/* Gráfico 1 */}
+        <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)] shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-black text-dark">Producción de Huevos</h2>
-              <p className="text-sm text-gray-500 font-medium">Esta semana</p>
-            </div>
-            <div className="bg-brand-50 text-brand-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-               <TrendingUp className="w-3 h-3" /> 88.955 Huevos
+              <h2 className="text-lg font-black text-[var(--text-primary)]">Rendimiento de producción</h2>
+              <p className="text-sm text-[var(--text-secondary)] font-medium">Producción de huevos - Últimos 7 días</p>
             </div>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={DATA_PRODUCCION} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} tickFormatter={(v) => `${v / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
                 <RechartsTooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value) => [`${value.toLocaleString()} huevos`, 'Producción']}
+                  contentStyle={{ borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
                 />
-                <Line type="monotone" dataKey="huevos" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="huevos" stroke="var(--accent)" strokeWidth={3} dot={{ r: 4, fill: 'var(--accent)', strokeWidth: 2, stroke: 'var(--bg-card)' }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Gráfico 2: Ventas vs Abono */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft">
+        {/* Gráfico 2 */}
+        <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)] shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-black text-dark">Ingresos y Ventas</h2>
-              <p className="text-sm text-gray-500 font-medium">Este mes</p>
-            </div>
-            <div className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-               <TrendingUp className="w-3 h-3" /> Bs. 6.245,00
+              <h2 className="text-lg font-black text-[var(--text-primary)]">Distribución de ventas</h2>
+              <p className="text-sm text-[var(--text-secondary)] font-medium">Este mes</p>
             </div>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DATA_VENTAS} margin={{ top: 5, right: 0, bottom: 5, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                <RechartsTooltip 
-                  cursor={{fill: '#f8fafc'}}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}/>
-                <Bar dataKey="huevos" name="Ventas Huevos" fill="#f97316" radius={[4, 4, 0, 0]} barSize={30} />
-                <Bar dataKey="abono" name="Ventas Abono" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={30} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-64 flex items-center justify-center bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)] text-[var(--text-secondary)]">
+             Aquí irá tu gráfico circular de ventas
           </div>
         </div>
       </div>
 
-      {/* ACTIVIDAD RECIENTE Y ACCESOS RÁPIDOS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Actividad Reciente (Simulada visualmente) */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-black text-dark flex items-center gap-2">
-              <Activity className="w-5 h-5 text-brand-500" /> Actividad Reciente
-            </h2>
-            <button className="text-sm font-bold text-brand-600 hover:text-brand-800">Ver todas →</button>
-          </div>
-          <div className="space-y-1">
-             <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
-               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><ShoppingCart className="w-4 h-4"/></div>
-                  <div>
-                    <p className="font-bold text-sm text-dark">Venta de huevos</p>
-                    <p className="text-xs text-gray-500">Bs. 420,00</p>
-                  </div>
-               </div>
-               <div className="text-right">
-                 <p className="text-xs font-bold text-gray-700">Hoy, 16:30</p>
-                 <p className="text-xs text-gray-500">Alex R.</p>
-               </div>
-             </div>
-             
-             <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
-               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center"><Egg className="w-4 h-4"/></div>
-                  <div>
-                    <p className="font-bold text-sm text-dark">Registro de producción</p>
-                    <p className="text-xs text-gray-500">88.955 huevos</p>
-                  </div>
-               </div>
-               <div className="text-right">
-                 <p className="text-xs font-bold text-gray-700">Hoy, 15:20</p>
-                 <p className="text-xs text-gray-500">Enc. Producción</p>
-               </div>
-             </div>
-
-             <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
-               <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center"><FileText className="w-4 h-4"/></div>
-                  <div>
-                    <p className="font-bold text-sm text-dark">Venta de abono</p>
-                    <p className="text-xs text-gray-500">Bs. 250,00</p>
-                  </div>
-               </div>
-               <div className="text-right">
-                 <p className="text-xs font-bold text-gray-700">Hoy, 14:10</p>
-                 <p className="text-xs text-gray-500">Enc. Ventas</p>
-               </div>
-             </div>
-          </div>
-        </div>
-
-        {/* Accesos Rápidos */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-soft">
-          <h2 className="text-lg font-black text-dark mb-4 flex items-center gap-2">
-             <PlusCircle className="w-5 h-5 text-brand-500" /> Accesos Rápidos
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-             <Link to="/ventas" className="flex flex-col items-center justify-center p-4 bg-orange-50 hover:bg-orange-100 rounded-2xl transition-colors border border-orange-100 group">
-               <ShoppingCart className="w-8 h-8 text-orange-500 mb-2 group-hover:scale-110 transition-transform" />
-               <span className="text-xs font-bold text-orange-800 text-center">Registrar Venta</span>
-             </Link>
-             <Link to="/produccion" className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl transition-colors border border-blue-100 group">
-               <Egg className="w-8 h-8 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
-               <span className="text-xs font-bold text-blue-800 text-center">Reg. Producción</span>
-             </Link>
-             <Link to="/abono" className="flex flex-col items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-2xl transition-colors border border-green-100 group">
-               <DollarSign className="w-8 h-8 text-green-500 mb-2 group-hover:scale-110 transition-transform" />
-               <span className="text-xs font-bold text-green-800 text-center">Venta de Abono</span>
-             </Link>
-             <Link to="/reportes" className="flex flex-col items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-2xl transition-colors border border-purple-100 group">
-               <FileText className="w-8 h-8 text-purple-500 mb-2 group-hover:scale-110 transition-transform" />
-               <span className="text-xs font-bold text-purple-800 text-center">Ver Reportes</span>
-             </Link>
-          </div>
-        </div>
-
-      </div>
     </div>
   );
 }

@@ -4,96 +4,212 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================
+   1. PALETA OFICIAL AVICONTROL
+   ========================================= */
+:root {
+  /* Modo Claro */
+  --bg-main: #EFE2CF;
+  --bg-card: #F8F1E7;
+  --bg-sidebar: #432D1A;
+  --bg-secondary: #E7D8C3;
+  --text-primary: #432D1A;
+  --text-secondary: #76583D;
+  --border-color: #D7C6AE;
+  --accent: #E0A526;
+  --accent-text: #171819;
+}
+
+html[data-theme="dark"] {
+  /* Modo Oscuro */
+  --bg-main: #171819;
+  --bg-card: #25272A;
+  --bg-sidebar: #222326;
+  --bg-secondary: #2A2C30;
+  --text-primary: #F2F2F0;
+  --text-secondary: #AAA49B;
+  --border-color: #57432D;
+  --accent: #E0A526;
+  --accent-text: #171819;
+}
+
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #F3F4F6;
-  color: #1F2937;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  transition: background-color 0.3s, color 0.3s;
   -webkit-font-smoothing: antialiased;
 }
 
+/* =========================================
+   2. COMPONENTES PERSONALIZADOS
+   ========================================= */
 @layer components {
   .btn-primary {
-    @apply bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2;
+    @apply bg-[var(--accent)] hover:opacity-90 text-[var(--accent-text)] font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2;
   }
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-dark border border-gray-300 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2;
+    @apply bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--border-color)] font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2;
   }
   .btn-danger {
     @apply bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2;
   }
   .input-field {
-    @apply w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-all bg-white font-medium;
+    @apply w-full border border-[var(--border-color)] rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--accent)] transition-all bg-[var(--bg-card)] text-[var(--text-primary)] font-medium;
   }
   .card {
-    @apply bg-surface rounded-2xl shadow-soft border border-gray-100 p-6;
+    @apply bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6;
   }
-  .badge-success { @apply bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
-  .badge-warning { @apply bg-brand-100 text-brand-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
-  .badge-danger { @apply bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
-  .badge-info { @apply bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center; }
+  
+  .badge-success { @apply px-3 py-1 rounded-full text-sm font-bold inline-flex items-center bg-green-100 text-green-700; }
+  .badge-warning { @apply px-3 py-1 rounded-full text-sm font-bold inline-flex items-center bg-amber-100 text-amber-700; }
+  .badge-danger { @apply px-3 py-1 rounded-full text-sm font-bold inline-flex items-center bg-red-100 text-red-700; }
+  .badge-info { @apply px-3 py-1 rounded-full text-sm font-bold inline-flex items-center bg-blue-100 text-blue-700; }
 }
 
+/* =========================================
+   3. SOLUCIÓN NUCLEAR PARA MODO OSCURO
+   ========================================= */
+
+/* Forzar que los títulos siempre usen el color de texto correcto */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary) !important;
+}
+
+/* Forzar que los párrafos y textos secundarios usen el color secundario */
+p, span, label {
+  color: var(--text-secondary);
+}
+
+/* Corregir textos oscuros/azules que se perdían en modo oscuro */
+html[data-theme="dark"] .text-black,
+html[data-theme="dark"] .text-gray-900,
+html[data-theme="dark"] .text-gray-800,
+html[data-theme="dark"] .text-gray-700,
+html[data-theme="dark"] .text-slate-900,
+html[data-theme="dark"] .text-slate-800,
+html[data-theme="dark"] .text-slate-700,
+html[data-theme="dark"] .text-zinc-900,
+html[data-theme="dark"] .text-blue-900,
+html[data-theme="dark"] .text-blue-800,
+html[data-theme="dark"] .text-dark,
+html[data-theme="dark"] .text-brand-700,
+html[data-theme="dark"] .text-brand-800 {
+  color: var(--text-primary) !important; /* Blanco en modo oscuro */
+}
+
+/* Corregir textos grises a ser grises claros */
+html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-gray-500,
+html[data-theme="dark"] .text-gray-400,
+html[data-theme="dark"] .text-slate-600,
+html[data-theme="dark"] .text-slate-500 {
+  color: var(--text-secondary) !important; /* Gris claro */
+}
+
+/* Corregir acentos azules a dorados */
+html[data-theme="dark"] .text-blue-600,
+html[data-theme="dark"] .text-blue-500,
+html[data-theme="dark"] .text-brand-600,
+html[data-theme="dark"] .text-brand-500 {
+  color: var(--accent) !important;
+}
+
+/* =========================================
+   ¡AQUÍ ESTÁ LA SOLUCIÓN AL BLANCO SOBRE BLANCO!
+   ========================================= */
+
+/* Forzar que CUALQUIER fondo claro se vuelva oscuro en modo oscuro */
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-gray-50,
+html[data-theme="dark"] .bg-gray-100,
+html[data-theme="dark"] .bg-slate-50,
+html[data-theme="dark"] .bg-slate-100,
+html[data-theme="dark"] .bg-brand-50,
+html[data-theme="dark"] .bg-brand-100,
+html[data-theme="dark"] .bg-amber-50,
+html[data-theme="dark"] .bg-orange-50,
+html[data-theme="dark"] .bg-yellow-50 {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ¡Esto es clave! Si hay un fondo claro, el texto debe ser oscuro para que se lea */
+/* Pero como forzamos a que el fondo sea oscuro, forzamos que el texto sea claro */
+html[data-theme="dark"] .bg-white *,
+html[data-theme="dark"] .bg-gray-50 *,
+html[data-theme="dark"] .bg-gray-100 *,
+html[data-theme="dark"] .bg-brand-50 *,
+html[data-theme="dark"] .bg-brand-100 * {
+  color: var(--text-primary) !important;
+}
+
+/* Forzar que los bordes grises se vuelvan bronce */
+html[data-theme="dark"] .border-gray-100,
+html[data-theme="dark"] .border-gray-200,
+html[data-theme="dark"] .border-gray-300,
+html[data-theme="dark"] .border-brand-100 {
+  border-color: var(--border-color) !important;
+}
+
+/* Asegurar que las tablas y sus celdas siempre se lean */
+html[data-theme="dark"] table,
+html[data-theme="dark"] th,
+html[data-theme="dark"] td {
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Asegurar que los inputs y selects siempre se lean en modo oscuro */
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Ajuste para los badges en modo oscuro */
+html[data-theme="dark"] .badge-success { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+html[data-theme="dark"] .badge-warning { background-color: rgba(224, 165, 38, 0.2); color: #fcd34d; }
+html[data-theme="dark"] .badge-danger { background-color: rgba(239, 68, 68, 0.2); color: #f87171; }
+html[data-theme="dark"] .badge-info { background-color: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+
+/* =========================================
+   4. BOTÓN TOGGLE DE TEMA
+   ========================================= */
 .theme-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   padding: 0.45rem 0.7rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 9999px;
-  background: #fff;
-  color: #4b5563;
+  background: var(--bg-card);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
   transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
 }
-.theme-toggle:hover { background: #fff7ed; color: #b45309; }
+.theme-toggle:hover { 
+  background: var(--bg-secondary); 
+  color: var(--accent); 
+}
 
-html[data-theme="dark"] body { background-color: #111827; color: #e5e7eb; }
-html[data-theme="dark"] .bg-background,
-html[data-theme="dark"] .bg-hueso { background-color: #111827; }
-html[data-theme="dark"] .bg-white,
-html[data-theme="dark"] .bg-surface { background-color: #1f2937; }
-html[data-theme="dark"] .bg-gray-50 { background-color: #263244; }
-html[data-theme="dark"] .bg-gray-100 { background-color: #374151; }
-html[data-theme="dark"] .text-dark,
-html[data-theme="dark"] .text-gray-900,
-html[data-theme="dark"] .text-gray-800,
-html[data-theme="dark"] .text-gray-700 { color: #f3f4f6; }
-html[data-theme="dark"] .text-gray-600,
-html[data-theme="dark"] .text-gray-500 { color: #cbd5e1; }
-html[data-theme="dark"] .text-gray-400 { color: #9ca3af; }
-html[data-theme="dark"] .border-gray-100,
-html[data-theme="dark"] .border-gray-200,
-html[data-theme="dark"] .border-gray-300 { border-color: #374151; }
-html[data-theme="dark"] .input-field,
-html[data-theme="dark"] select,
-html[data-theme="dark"] input {
-  border-color: #475569;
-  background-color: #111827;
-  color: #f9fafb;
+/* =========================================
+   5. SCROLLBAR PERSONALIZADO
+   ========================================= */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
 }
-html[data-theme="dark"] input::placeholder { color: #9ca3af; }
-html[data-theme="dark"] .bg-brand-50 { background-color: #422f13; }
-html[data-theme="dark"] .text-brand-700,
-html[data-theme="dark"] .text-brand-800 { color: #fbbf58; }
-html[data-theme="dark"] .border-brand-100 { border-color: #6b4b1b; }
-html[data-theme="dark"] .theme-toggle {
-  border-color: #475569;
-  background-color: #1f2937;
-  color: #e5e7eb;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
-html[data-theme="dark"] .theme-toggle:hover { background-color: #293548; color: #fde68a; }
-html[data-theme="dark"] .login-cliente {
-  background: radial-gradient(ellipse at 50% 30%, #26364b 0%, #172131 46%, #111827 100%);
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
 }
-html[data-theme="dark"] [role="alert"] {
-  border-color: #7f1d1d;
-  background-color: #451a1a;
-  color: #fecaca;
-}
-html[data-theme="dark"] .mensaje-exito {
-  border-color: #166534;
-  background-color: #14331f;
-  color: #bbf7d0;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

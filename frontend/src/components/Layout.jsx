@@ -3,7 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useGranja } from "../context/GranjaContext";
 import {
   LayoutDashboard, Egg, ShoppingCart, Users,
-  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag, BarChart2, Home, Bird, ClipboardList, Pill, ChevronDown
+  Package, DollarSign, LogOut, Menu, Bell, Settings, Building2, Wheat, UserCog, Truck, ShoppingBag, BarChart2, Bird, Pill, ChevronDown
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
@@ -12,11 +12,7 @@ import { gql } from "@apollo/client";
 
 const GRANJAS_QUERY = gql`
   query GranjasParaSelector {
-    granjas {
-      id
-      nombre
-      codigo
-    }
+    granjas { id nombre codigo }
   }
 `;
 
@@ -28,16 +24,10 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const rutaProduccionActiva = location.pathname.startsWith("/produccion") || location.pathname.startsWith("/abono");
   const [produccionOpen, setProduccionOpen] = useState(rutaProduccionActiva);
-  const rutaComercializacionActiva = ["/pedidos", "/entregas", "/clientes", "/ventas"].some((path) => location.pathname.startsWith(path));
-  const [comercializacionOpen, setComercializacionOpen] = useState(rutaComercializacionActiva);
 
   useEffect(() => {
     if (rutaProduccionActiva) setProduccionOpen(true);
   }, [rutaProduccionActiva]);
-
-  useEffect(() => {
-    if (rutaComercializacionActiva) setComercializacionOpen(true);
-  }, [rutaComercializacionActiva]);
 
   const handleLogout = () => {
     cerrarSesion();
@@ -94,18 +84,10 @@ export default function Layout({ children }) {
     { 
       grupo: "Comercialización", 
       items: [
-        {
-          name: "Comercialización",
-          key: "comercializacion",
-          icon: ShoppingCart,
-          show: esSuperadmin || esAdminGranja || esVentas,
-          children: [
-            { name: "Pedidos", path: "/pedidos", icon: ShoppingCart },
-            { name: "Entregas", path: "/entregas", icon: Truck },
-            { name: "Clientes", path: "/clientes", icon: Users },
-            { name: "Ventas", path: "/ventas", icon: DollarSign },
-          ],
-        },
+        { name: "Pedidos", path: "/pedidos", icon: ShoppingCart, show: esSuperadmin || esAdminGranja || esVentas },
+        { name: "Entregas", path: "/entregas", icon: Truck, show: esSuperadmin || esAdminGranja || esVentas },
+        { name: "Clientes", path: "/clientes", icon: Users, show: esSuperadmin || esAdminGranja || esVentas },
+        { name: "Ventas", path: "/ventas", icon: DollarSign, show: esSuperadmin || esAdminGranja || esVentas },
       ]
     },
     { 
@@ -127,25 +109,30 @@ export default function Layout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <aside className="hidden md:flex flex-col w-64 bg-[#0B132B] text-white h-screen sticky top-0 z-20 shadow-xl">
+    <div className="min-h-screen flex bg-[var(--bg-main)] text-[var(--text-primary)] transition-colors duration-300">
+      
+      {/* SIDEBAR */}
+      <aside className="hidden md:flex flex-col w-64 bg-[var(--bg-sidebar)] text-white h-screen sticky top-0 z-20 shadow-2xl">
+        
+        {/* Logo */}
         <div className="h-24 flex flex-col items-center justify-center border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="text-3xl">🐔</span>
             <div>
               <h1 className="text-xl font-black tracking-tight text-white leading-tight">AVICONTROL</h1>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">Sistema Avícola</p>
+              <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest text-center">Sistema Avícola</p>
             </div>
           </div>
         </div>
 
+        {/* Selector Granja */}
         {esSuperadmin && (
           <div className="px-4 py-4 border-b border-white/10">
-            <label className="text-[10px] font-bold text-gray-400 mb-1.5 block uppercase tracking-widest">
+            <label className="text-[10px] font-bold text-white/50 mb-1.5 block uppercase tracking-widest">
               Granja Activa
             </label>
             <select
-              className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm font-medium text-white focus:ring-2 focus:ring-brand-500 outline-none"
+              className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm font-medium text-white focus:ring-2 focus:ring-[var(--accent)] outline-none cursor-pointer"
               value={granjaActiva?.id || ""}
               onChange={handleGranjaChange}
             >
@@ -157,6 +144,7 @@ export default function Layout({ children }) {
           </div>
         )}
 
+        {/* Menú */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 custom-scrollbar">
           {menuItems.map((grupo) => {
             const itemsVisibles = grupo.items.filter((i) => i.show);
@@ -164,36 +152,33 @@ export default function Layout({ children }) {
 
             return (
               <div key={grupo.grupo}>
-                <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                <p className="px-3 text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">
                   {grupo.grupo}
                 </p>
                 <div className="space-y-1">
                   {itemsVisibles.map((item) => {
                     if (item.children) {
-                      const childrenVisibles = item.children;
-                      const grupoActivo = childrenVisibles.some(rutaHijaActiva);
-                      const submenuOpen = item.key === "comercializacion" ? comercializacionOpen : produccionOpen;
-                      const setSubmenuOpen = item.key === "comercializacion" ? setComercializacionOpen : setProduccionOpen;
-                      const submenuId = `submenu-${item.key || "produccion"}`;
+                      const grupoActivo = item.children.some(rutaHijaActiva);
                       const GrupoIcon = item.icon;
                       return (
                         <div key={item.name}>
                           <button
                             type="button"
-                            onClick={() => setSubmenuOpen((abierto) => !abierto)}
-                            aria-expanded={submenuOpen}
-                            aria-controls={submenuId}
+                            onClick={() => setProduccionOpen((abierto) => !abierto)}
+                            aria-expanded={produccionOpen}
                             className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all font-bold text-sm ${
-                              grupoActivo ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-md shadow-orange-500/20" : "text-gray-400 hover:bg-white/5 hover:text-white"
+                              grupoActivo 
+                                ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-md" 
+                                : "text-white/60 hover:bg-white/5 hover:text-white"
                             }`}
                           >
-                            <GrupoIcon className={`w-5 h-5 mr-3 ${grupoActivo ? "text-white" : "text-gray-400"}`} strokeWidth={grupoActivo ? 2.5 : 2} />
+                            <GrupoIcon className="w-5 h-5 mr-3" strokeWidth={grupoActivo ? 2.5 : 2} />
                             <span className="flex-1 text-left">{item.name}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${submenuOpen ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-4 h-4 transition-transform ${produccionOpen ? "rotate-180" : ""}`} />
                           </button>
-                          {submenuOpen && (
-                            <div id={submenuId} className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
-                              {childrenVisibles.map((child) => {
+                          {produccionOpen && (
+                            <div className="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
+                              {item.children.map((child) => {
                                 const childActive = rutaHijaActiva(child);
                                 const ChildIcon = child.icon;
                                 return (
@@ -201,7 +186,9 @@ export default function Layout({ children }) {
                                     key={child.name}
                                     to={{ pathname: child.path, search: child.search || "" }}
                                     className={`flex items-center px-3 py-2 rounded-lg transition-colors font-bold text-sm ${
-                                      childActive ? "text-orange-400 bg-white/5" : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                      childActive 
+                                        ? "text-[var(--accent)] bg-white/5" 
+                                        : "text-white/60 hover:bg-white/5 hover:text-white"
                                     }`}
                                   >
                                     <ChildIcon className="w-4 h-4 mr-3" />
@@ -222,11 +209,11 @@ export default function Layout({ children }) {
                         to={item.path}
                         className={`flex items-center px-3 py-2.5 rounded-xl transition-all font-bold text-sm ${
                           isActive 
-                            ? "bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-md shadow-orange-500/20" 
-                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                            ? "bg-[var(--accent)] text-[var(--accent-text)] shadow-md" 
+                            : "text-white/60 hover:bg-white/5 hover:text-white"
                         }`}
                       >
-                        <Icon className={`w-5 h-5 mr-3 ${isActive ? "text-white" : "text-gray-400"}`} strokeWidth={isActive ? 2.5 : 2} />
+                        <Icon className="w-5 h-5 mr-3" strokeWidth={isActive ? 2.5 : 2} />
                         {item.name}
                       </Link>
                     );
@@ -237,56 +224,66 @@ export default function Layout({ children }) {
           })}
         </nav>
 
+        {/* Footer usuario */}
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white flex items-center justify-center font-black text-lg shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center font-black text-lg">
               {usuario?.username?.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-white truncate">{usuario?.nombres} {usuario?.apellidos}</p>
-              <p className="text-xs text-gray-400 truncate capitalize">
+              <p className="text-xs text-white/50 truncate capitalize">
                 {usuario?.roles?.[0]?.nombre || "Sin rol"}
               </p>
             </div>
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-400 hover:bg-white/5 hover:text-red-300 py-2.5 rounded-xl transition-colors">
+          <button 
+            onClick={handleLogout} 
+            className="w-full flex items-center justify-center gap-2 text-sm font-bold text-red-400 hover:bg-white/5 hover:text-red-300 py-2.5 rounded-xl transition-colors"
+          >
             <LogOut className="w-4 h-4" /> Cerrar sesión
           </button>
         </div>
       </aside>
 
+      {/* CONTENIDO PRINCIPAL */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="hidden md:flex bg-white h-20 items-center justify-between px-8 sticky top-0 z-10 border-b border-gray-200 shadow-sm">
-          <div className="flex items-center gap-3 text-gray-400">
-             <button className="p-2 hover:bg-gray-100 rounded-lg"><Menu className="w-5 h-5" /></button>
+        
+        {/* Topbar Desktop */}
+        <header className="hidden md:flex bg-[var(--bg-card)] h-20 items-center justify-between px-8 sticky top-0 z-10 border-b border-[var(--border-color)] shadow-sm">
+          <div className="flex items-center gap-3 text-[var(--text-secondary)]">
+             <button className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors">
+               <Menu className="w-5 h-5" />
+             </button>
           </div>
           
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <button className="p-2 text-gray-400 hover:text-brand-500 relative bg-white rounded-full shadow-sm border border-gray-100">
+            <button className="p-2 text-[var(--text-secondary)] hover:text-[var(--accent)] relative bg-[var(--bg-main)] rounded-full border border-[var(--border-color)] transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--bg-main)]"></span>
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-black text-sm">
+              <div className="w-9 h-9 rounded-full bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center font-black text-sm">
                 {usuario?.username?.charAt(0).toUpperCase()}
               </div>
               <div className="hidden lg:block">
-                <p className="text-sm font-bold text-dark leading-tight">{usuario?.nombres || usuario?.username} {usuario?.apellidos}</p>
-                <p className="text-[10px] text-gray-500 font-bold uppercase">{usuario?.roles?.[0]?.nombre || "Admin"}</p>
+                <p className="text-sm font-bold leading-tight">{usuario?.nombres || usuario?.username} {usuario?.apellidos}</p>
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">{usuario?.roles?.[0]?.nombre || "Admin"}</p>
               </div>
             </div>
           </div>
         </header>
 
-        <header className="md:hidden bg-white border-b border-gray-200 px-4 h-16 flex items-center justify-between sticky top-0 z-20">
+        {/* Topbar Móvil */}
+        <header className="md:hidden bg-[var(--bg-card)] border-b border-[var(--border-color)] px-4 h-16 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🐔</span>
-            <span className="text-lg font-black text-brand-600 tracking-tight">AVICONTROL</span>
+            <span className="text-lg font-black text-[var(--text-primary)] tracking-tight">AVICONTROL</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-gray-600 bg-gray-50 rounded-lg">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-[var(--text-secondary)] bg-[var(--bg-main)] rounded-lg">
               <Menu className="w-6 h-6" />
             </button>
           </div>
