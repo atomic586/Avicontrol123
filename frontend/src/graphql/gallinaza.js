@@ -1,7 +1,7 @@
 import { gql } from "@apollo/client";
 
 const PRODUCTO_FIELDS = `
-  id nombre unidadBase precioBulto precioKg precioTonelada
+  id nombre tipo unidadBase precioBulto precioKg precioTonelada
   stockActualKg stockMinimoKg activo
 `;
 
@@ -38,8 +38,8 @@ export const GALLINAZA_MOVIMIENTOS = gql`
 `;
 
 export const GUARDAR_PRODUCTO_GALLINAZA = gql`
-  mutation GuardarProductoGallinaza($id: ID, $nombre: String!, $precioBulto: Decimal!, $precioKg: Decimal!, $precioTonelada: Decimal!, $stockMinimoKg: Decimal!, $activo: Boolean!) {
-    guardarProductoGallinaza(id: $id, nombre: $nombre, precioBulto: $precioBulto, precioKg: $precioKg, precioTonelada: $precioTonelada, stockMinimoKg: $stockMinimoKg, activo: $activo) { ${PRODUCTO_FIELDS} }
+  mutation GuardarProductoGallinaza($id: ID, $nombre: String!, $tipo: String, $precioBulto: Decimal!, $precioKg: Decimal!, $precioTonelada: Decimal!, $stockMinimoKg: Decimal!, $activo: Boolean!) {
+    guardarProductoGallinaza(id: $id, nombre: $nombre, tipo: $tipo, precioBulto: $precioBulto, precioKg: $precioKg, precioTonelada: $precioTonelada, stockMinimoKg: $stockMinimoKg, activo: $activo) { ${PRODUCTO_FIELDS} }
   }
 `;
 

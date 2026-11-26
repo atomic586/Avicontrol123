@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
@@ -29,20 +28,6 @@ const DASHBOARD_QUERY = gql`
   }
 `;
 
-const GRANJA_ACTUAL_QUERY = gql`
-  query GranjaActual {
-    granjaActual {
-      id
-      nombre
-      codigo
-      ubicacion
-      telefono
-      email
-      activo
-    }
-  }
-`;
-
 // Datos simulados para los gráficos (luego los conectamos a la BD real)
 const DATA_PRODUCCION = [
   { name: "Lun", huevos: 45000 },
@@ -63,17 +48,11 @@ const DATA_VENTAS = [
 
 export default function Dashboard() {
   const { usuario } = useAuth();
-  const [periodo, setPeriodo] = useState("semana");
-
-  const { data, loading, error } = useQuery(DASHBOARD_QUERY, {
-    fetchPolicy: "network-only",
-  });
-  const { data: dataGranja } = useQuery(GRANJA_ACTUAL_QUERY, {
+  const { data } = useQuery(DASHBOARD_QUERY, {
     fetchPolicy: "network-only",
   });
 
   const d = data?.dashboard;
-  const granja = dataGranja?.granjaActual;
 
   return (
     <div className="space-y-6 pb-10">

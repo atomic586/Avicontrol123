@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { Wheat, Plus, Package, ArrowDownCircle, ShoppingCart } from "lucide-react";
 import {
@@ -9,15 +9,18 @@ import {
   GUARDAR_PRODUCTO_GALLINAZA,
 } from "../graphql/abono";
 import Modal from "../components/Modal";
+import RecoleccionGalpon from "./abono/RecoleccionGalpon";
 
 const TABS = [
   { key: "productos", label: "Productos", icon: Package },
+  { key: "recoleccion", label: "Recolección", icon: Wheat },
   { key: "entradas", label: "Entradas", icon: ArrowDownCircle },
   { key: "ventas", label: "Ventas", icon: ShoppingCart },
 ];
 
 export default function Abono() {
   const [tab, setTab] = useState("productos");
+  const [productoParaEntrada, setProductoParaEntrada] = useState(null);
 
   return (
     <div className="space-y-6">
@@ -25,7 +28,7 @@ export default function Abono() {
         <h1 className="text-3xl md:text-4xl font-black text-dark tracking-tight flex items-center gap-3">
           <Wheat className="w-8 h-8 text-brand-500" /> Abono y Subproductos
         </h1>
-        <p className="text-gray-500 text-base mt-1 font-medium">Gestión comercial de gallinaza</p>
+        <p className="text-gray-500 text-base mt-1 font-medium">Gestión comercial de abono</p>
       </div>
 
       <div className="flex gap-2 border-b border-gray-200">
@@ -45,22 +48,65 @@ export default function Abono() {
         })}
       </div>
 
-      {tab === "productos" && <TabProductos />}
-      {tab === "entradas" && <TabEntradas />}
+      {tab === "recoleccion" && <RecoleccionGalpon />}
+      {tab === "productos" && <TabProductos onRegistrarStock={(producto) => { setProductoParaEntrada(producto); setTab("entradas"); }} />}
+      {tab === "entradas" && <TabEntradas productoSeleccionado={productoParaEntrada} onProductoSeleccionado={() => setProductoParaEntrada(null)} />}
       {tab === "ventas" && <TabVentas />}
     </div>
   );
 }
 
-function TabProductos() {
+function TabProductos({ onRegistrarStock }) {
   const { data, loading, refetch } = useQuery(PRODUCTOS_GALLINAZA_QUERY, {
     variables: { soloActivos: false },
     fetchPolicy: "network-only",
   });
   const [guardarProducto, { loading: guardando }] = useMutation(GUARDAR_PRODUCTO_GALLINAZA);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ nombre: "", unidadBase: "kg", precioBulto: "0", precioKg: "0", precioTonelada: "0", stockMinimoKg: "0", activo: true });
+  const [form, setForm] = useState({ nombre: "", unidadBase: "kg", tipo: "listo", precioBulto: "0", precioKg: "0", precioTonelada: "0", stockMinimoKg: "0", activo: true });
   const [error, setError] = useState("");
+
+  const abrirNuevo = () => {
+    setForm({ nombre: "", unidadBase: "kg", tipo: "listo", precioBulto: "0", precioKg: "0", precioTonelada: "0", stockMinimoKg: "0", activo: true });
+    setError("");
+    setModalOpen(true);
+  };
+
+  const editar = (producto) => {
+    setForm({
+      id: producto.id,
+      nombre: producto.nombre,
+      unidadBase: "kg",
+      tipo: producto.tipo,
+      precioBulto: String(producto.precioBulto),
+      precioKg: String(producto.precioKg),
+      precioTonelada: String(producto.precioTonelada),
+      stockMinimoKg: String(producto.stockMinimoKg),
+      activo: producto.activo,
+    });
+    setError("");
+    setModalOpen(true);
+  };
+
+  const cambiarEstado = async (producto) => {
+    setError("");
+    try {
+      await guardarProducto({ variables: {
+        id: producto.id,
+        nombre: producto.nombre,
+        unidadBase: "kg",
+        tipo: producto.tipo,
+        precioBulto: producto.precioBulto,
+        precioKg: producto.precioKg,
+        precioTonelada: producto.precioTonelada,
+        stockMinimoKg: producto.stockMinimoKg,
+        activo: !producto.activo,
+      } });
+      await refetch();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -68,8 +114,10 @@ function TabProductos() {
     try {
       await guardarProducto({
         variables: {
+          id: form.id,
           nombre: form.nombre,
-          unidadBase: form.unidadBase,
+          unidadBase: "kg",
+          tipo: form.tipo,
           precioBulto: parseFloat(form.precioBulto) || 0,
           precioKg: parseFloat(form.precioKg) || 0,
           precioTonelada: parseFloat(form.precioTonelada) || 0,
@@ -78,7 +126,8 @@ function TabProductos() {
         },
       });
       setModalOpen(false);
-      refetch();
+      setForm({ nombre: "", unidadBase: "kg", tipo: "listo", precioBulto: "0", precioKg: "0", precioTonelada: "0", stockMinimoKg: "0", activo: true });
+      await refetch();
     } catch (err) {
       setError(err.message);
     }
@@ -89,20 +138,23 @@ function TabProductos() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setModalOpen(true)} className="btn-primary">
+        <button onClick={abrirNuevo} className="btn-primary">
           <Plus className="w-5 h-5" /> Nuevo producto
         </button>
       </div>
 
+      {error && !modalOpen && <div className="card border-red-200 bg-red-50 text-red-700">{error}</div>}
+
       {loading ? (
         <div className="card text-center py-12 text-gray-500">Cargando productos...</div>
       ) : productos.length === 0 ? (
-        <div className="card text-center py-12 text-gray-500">No hay productos de gallinaza registrados.</div>
+        <div className="card text-center py-12 text-gray-500">No hay productos de abono registrados.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {productos.map((p) => (
             <div key={p.id} className="card">
               <h3 className="text-xl font-black text-dark mb-2">{p.nombre}</h3>
+              <span className="badge-info">{p.tipo === "en_tratamiento" ? "En tratamiento" : p.tipo === "listo" ? "Listo para vender" : p.tipo[0].toUpperCase() + p.tipo.slice(1)}</span>
               <p className="text-sm text-gray-500 mb-3">Unidad base: {p.unidadBase}</p>
               <div className="space-y-1 text-sm text-gray-600">
                 <p>Stock actual: <strong>{Number(p.stockActualKg).toFixed(2)} kg</strong></p>
@@ -113,12 +165,21 @@ function TabProductos() {
               <div className="mt-3">
                 <span className={p.activo ? "badge-success" : "badge-danger"}>{p.activo ? "Activo" : "Inactivo"}</span>
               </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" className="btn-secondary" onClick={() => editar(p)}>Editar</button>
+                <button type="button" className="btn-secondary" onClick={() => {
+                  if (!p.activo || window.confirm(`¿Desactivar “${p.nombre}”? Se conservarán sus ventas y movimientos.`)) cambiarEstado(p);
+                }} disabled={guardando}>
+                  {p.activo ? "Desactivar" : "Reactivar"}
+                </button>
+                {p.activo && <button type="button" className="btn-primary" onClick={() => onRegistrarStock(p)}>Registrar stock</button>}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo producto de gallinaza">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Editar producto de abono" : "Nuevo producto de abono"}>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-bold text-gray-700 mb-1 block">Nombre *</label>
@@ -126,7 +187,16 @@ function TabProductos() {
           </div>
           <div>
             <label className="text-sm font-bold text-gray-700 mb-1 block">Unidad base</label>
-            <input className="input-field" value={form.unidadBase} onChange={(e) => setForm({ ...form, unidadBase: e.target.value })} />
+            <input className="input-field" value="kg" readOnly aria-readonly="true" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700 mb-1 block">Tipo de abono *</label>
+            <select className="input-field" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+              <option value="fresco">Fresco</option>
+              <option value="en_tratamiento">En tratamiento</option>
+              <option value="seco">Seco</option>
+              <option value="listo">Listo para vender</option>
+            </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -157,13 +227,21 @@ function TabProductos() {
   );
 }
 
-function TabEntradas() {
+function TabEntradas({ productoSeleccionado, onProductoSeleccionado }) {
   const { data: productosData } = useQuery(PRODUCTOS_GALLINAZA_QUERY, { variables: { soloActivos: true } });
   const { data, loading, refetch } = useQuery(ENTRADAS_GALLINAZA_QUERY, { fetchPolicy: "network-only" });
   const [registrarEntrada, { loading: guardando }] = useMutation(REGISTRAR_ENTRADA_GALLINAZA);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ productoId: "", fecha: new Date().toISOString().split("T")[0], cantidadKg: "", origen: "", observaciones: "" });
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!productoSeleccionado) return;
+    setForm((actual) => ({ ...actual, productoId: productoSeleccionado.id }));
+    setError("");
+    setModalOpen(true);
+    onProductoSeleccionado();
+  }, [productoSeleccionado, onProductoSeleccionado]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -200,7 +278,7 @@ function TabEntradas() {
       {loading ? (
         <div className="card text-center py-12 text-gray-500">Cargando entradas...</div>
       ) : entradas.length === 0 ? (
-        <div className="card text-center py-12 text-gray-500">No hay entradas registradas.</div>
+        <div className="card text-center py-12 text-gray-500">No hay entradas registradas. Registra una cantidad en kg para que el abono tenga stock y aparezca en pedidos.</div>
       ) : (
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-base">
@@ -226,7 +304,7 @@ function TabEntradas() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar entrada de gallinaza">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar entrada de abono">
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-bold text-gray-700 mb-1 block">Producto *</label>
