@@ -1,6 +1,10 @@
 """
 Schema GraphQL de AVICONTROL.
 Define Query (lecturas) y Mutation (escrituras) para todas las tablas.
+
+FASE 0: sistema de módulos activables por granja.
+FASE 1: módulo de sanidad + bioseguridad.
+FASE 2: módulo de aves + trazabilidad (pesos, incubación, venta de aves, costos).
 """
 
 import re
@@ -32,12 +36,16 @@ from avicontrol.models import (
     Proveedor, Compra, DetalleCompra, Almacen, MovimientoStock,
     Rol, Auditoria, MovimientoAve,
     ConsumoInsumo, MedicamentoEnAlimento, TarifaProducto,
+    ConfiguracionGranja,
+    Vacuna, PlanSanitario, Tratamiento, LimpiezaGalpon, ControlRoedores,
+    RegistroPeso, Incubacion, VentaAve, CostoLote,
 )
 from avicontrol.gallinaza_models import (
     ProductoGallinaza, EntradaGallinaza, VentaGallinaza,
     DetalleVentaGallinaza, PagoGallinaza, MovimientoGallinaza,
 )
 from avicontrol.gallinaza_services import registrar_entrada, registrar_venta, registrar_pago
+from avicontrol.modulos import MODULOS_DEFAULT
 from .types import (
     UsuarioType, ClienteType, GranjaType, GalponType, LoteType,
     ProduccionType, ProductoType, InsumoType, PedidoType,
@@ -47,9 +55,12 @@ from .types import (
     ConfiguracionTiendaType, RolType,
     ProveedorType, CompraCompletaType, DetalleCompraType,
     MovimientoAveType, ConsumoInsumoType, MedicamentoEnAlimentoType,
-    TarifaProductoType,
+    TarifaProductoType, ConfiguracionGranjaType,
     ProductoGallinazaType, EntradaGallinazaType, VentaGallinazaType,
     DetalleVentaGallinazaType, PagoGallinazaType, MovimientoGallinazaType,
+    VacunaType, PlanSanitarioType, TratamientoType,
+    LimpiezaGalponType, ControlRoedoresType, AlertaSanitariaType,
+    RegistroPesoType, IncubacionType, VentaAveType, CostoLoteType,
 )
 from .auth_jwt import generar_tokens, usuario_desde_request
 
@@ -108,18 +119,42 @@ class PedidoClientePayload:
     total: Decimal
 
 
+@strawberry.type
+class ResumenTrazabilidadLoteType:
+    lote_id: strawberry.ID
+    lote_codigo: str
+    aves_actuales: int
+    peso_promedio_g: Decimal
+    total_consumo_kg: Decimal
+    conversion_alimenticia: Decimal
+    costo_total_lote: Decimal
+    costo_por_ave: Decimal
+    ventas_aves_total: int
+    ingresos_aves: Decimal
+    margen_lote: Decimal
+
+
 # ============================================================
 # HELPERS
 # ============================================================
 def _granja_por_defecto(info: Optional[Info] = None) -> Granja:
+    """Devuelve la granja del usuario autenticado."""
     request = getattr(info.context, "request", None) if info else None
     usuario = usuario_desde_request(request) if request else None
+
     if usuario and usuario.granja_id:
         return usuario.granja
-    granja = Granja.objects.order_by("id").first()
-    if granja is None:
-        raise ValueError("No hay ninguna granja configurada.")
-    return granja
+
+    if usuario and usuario.es_superadmin:
+        granja = Granja.objects.order_by("id").first()
+        if granja is None:
+            raise ValueError("No hay ninguna granja configurada.")
+        return granja
+
+    raise ValueError(
+        "No autenticado o sin granja asignada. "
+        "Inicia sesión con un usuario asociado a una granja."
+    )
 
 
 def _granja_de_galpon(galpon_id) -> tuple:
@@ -194,6 +229,12 @@ def requerir_acceso_granja(info: Info, granja_id) -> Usuario:
         f"No tienes permiso para ver esta granja. "
         f"Tu usuario ({user.username}) tiene los roles: {', '.join(roles_usuario) or 'ninguno'}."
     )
+
+
+def _verificar_modulo(info: Info, codigo: str) -> None:
+    """Lanza error si el módulo no está activo en la granja del usuario."""
+    from avicontrol.modulos_helpers import requerir_modulo
+    requerir_modulo(info, codigo)
 
 
 @strawberry.type
@@ -279,6 +320,22 @@ class DashboardType:
 # ============================================================
 @strawberry.type
 class Query:
+
+    # ---- MÓDULOS (FASE 0) ----
+    @strawberry.field
+    def modulos_activos(self, info: Info) -> List[str]:
+        granja = _granja_por_defecto(info)
+        config = getattr(granja, "configuracion_modulos", None)
+        return list(config.modulos_activos) if config else []
+
+    @strawberry.field
+    def configuracion_granja(self, info: Info) -> ConfiguracionGranjaType:
+        granja = _granja_por_defecto(info)
+        config, _ = ConfiguracionGranja.objects.get_or_create(
+            granja=granja,
+            defaults={"modulos_activos": list(MODULOS_DEFAULT)},
+        )
+        return config
 
     # ---- ROLES ----
     @strawberry.field
@@ -374,7 +431,7 @@ class Query:
         requerir_acceso_granja(info, id)
         return list(Usuario.objects.filter(granja_id=id))
 
-    # ---- NUEVAS QUERIES PARA EL DASHBOARD DE GRANJA ----
+    # ---- DASHBOARD DE GRANJA ----
     @strawberry.field
     def lotes_granja(
         self, info: Info, granja_id: strawberry.ID,
@@ -524,8 +581,24 @@ class Query:
 
     # ---- PRODUCTOS ----
     @strawberry.field
-    def productos(self, solo_activos: bool = False) -> List[ProductoType]:
+    def productos(
+        self,
+        info: Info,
+        solo_activos: bool = False,
+        granja_id: Optional[strawberry.ID] = None,
+    ) -> List[ProductoType]:
         qs = Producto.objects.all()
+        if granja_id:
+            qs = qs.filter(granja_id=granja_id)
+        else:
+            try:
+                granja = _granja_por_defecto(info)
+                qs = qs.filter(granja=granja)
+            except ValueError:
+                raise ValueError(
+                    "Debes indicar granjaId para ver productos públicos, "
+                    "o iniciar sesión con un usuario asociado a una granja."
+                )
         if solo_activos:
             qs = qs.filter(activo=True)
         return list(qs)
@@ -621,7 +694,6 @@ class Query:
             qs = qs.filter(pedido__cliente_id=cliente_id)
         return list(qs)
 
-    # ---- HISTORIAL DE COMPRAS POR CLIENTE ----
     @strawberry.field
     def historial_cliente(self, cliente_id: strawberry.ID) -> List[PedidoCompletoType]:
         return list(
@@ -741,11 +813,20 @@ class Query:
     def configuracion_tienda(
         self, info: Info, granja_id: Optional[strawberry.ID] = None
     ) -> ConfiguracionTiendaType:
-        granja = None
         if granja_id:
             granja = Granja.objects.filter(pk=granja_id, activo=True).first()
+            if not granja:
+                raise ValueError("Granja no encontrada o inactiva.")
+            return ConfiguracionTienda.get_solo(granja)
+
+        request = getattr(info.context, "request", None)
+        usuario = usuario_desde_request(request) if request else None
+        if usuario and usuario.granja_id:
+            return ConfiguracionTienda.get_solo(usuario.granja)
+
+        granja = Granja.objects.filter(activo=True).order_by("id").first()
         if granja is None:
-            granja = _granja_por_defecto(info)
+            raise ValueError("No hay granjas activas configuradas.")
         return ConfiguracionTienda.get_solo(granja)
 
     # ============================================================
@@ -800,12 +881,257 @@ class Query:
             qs = qs.filter(producto_id=producto_id)
         return list(qs.order_by("-created_at"))
 
+    # ============================================================
+    # MÓDULO SANIDAD (FASE 1)
+    # ============================================================
+    @strawberry.field
+    def vacunas(self, info: Info, solo_activas: bool = False) -> List[VacunaType]:
+        _verificar_modulo(info, "sanidad")
+        qs = Vacuna.objects.all()
+        if solo_activas:
+            qs = qs.filter(activo=True)
+        return list(qs)
+
+    @strawberry.field
+    def plan_sanitario_lote(
+        self, info: Info, lote_id: strawberry.ID,
+        solo_pendientes: bool = False,
+    ) -> List[PlanSanitarioType]:
+        _verificar_modulo(info, "sanidad")
+        qs = PlanSanitario.objects.filter(lote_id=lote_id)
+        if solo_pendientes:
+            qs = qs.filter(aplicada=False)
+        return list(qs)
+
+    @strawberry.field
+    def tratamientos_lote(
+        self, info: Info, lote_id: strawberry.ID,
+        solo_activos: bool = False,
+    ) -> List[TratamientoType]:
+        _verificar_modulo(info, "sanidad")
+        qs = Tratamiento.objects.filter(lote_id=lote_id)
+        if solo_activos:
+            qs = qs.filter(completado=False)
+        return list(qs)
+
+    @strawberry.field
+    def limpiezas_galpon(
+        self, info: Info, galpon_id: strawberry.ID,
+        dias: int = 90,
+    ) -> List[LimpiezaGalponType]:
+        _verificar_modulo(info, "sanidad")
+        desde = timezone.now().date() - timezone.timedelta(days=dias)
+        return list(
+            LimpiezaGalpon.objects.filter(galpon_id=galpon_id, fecha__gte=desde)
+        )
+
+    @strawberry.field
+    def controles_roedores(self, info: Info, dias: int = 90) -> List[ControlRoedoresType]:
+        _verificar_modulo(info, "sanidad")
+        granja = _granja_por_defecto(info)
+        desde = timezone.now().date() - timezone.timedelta(days=dias)
+        return list(
+            ControlRoedores.objects.filter(granja=granja, fecha__gte=desde)
+        )
+
+    @strawberry.field
+    def alertas_sanitarias(self, info: Info) -> List[AlertaSanitariaType]:
+        _verificar_modulo(info, "sanidad")
+        granja = _granja_por_defecto(info)
+        hoy = timezone.now().date()
+        limite_vacunas = hoy + timezone.timedelta(days=3)
+        alertas: List[AlertaSanitariaType] = []
+
+        pendientes = PlanSanitario.objects.filter(
+            lote__granja=granja, aplicada=False,
+            fecha_programada__lte=limite_vacunas,
+        ).select_related("lote", "vacuna")
+        for p in pendientes:
+            if p.fecha_programada < hoy:
+                alertas.append(AlertaSanitariaType(
+                    tipo="vacuna_proxima",
+                    severidad="alta",
+                    mensaje=f"Vacuna VENCIDA: {p.vacuna.nombre} en lote {p.lote.codigo} (programada {p.fecha_programada})",
+                    referencia_id=str(p.id),
+                    fecha_referencia=p.fecha_programada,
+                ))
+            else:
+                alertas.append(AlertaSanitariaType(
+                    tipo="vacuna_proxima",
+                    severidad="media",
+                    mensaje=f"Vacuna próxima: {p.vacuna.nombre} en lote {p.lote.codigo} ({p.fecha_programada})",
+                    referencia_id=str(p.id),
+                    fecha_referencia=p.fecha_programada,
+                ))
+
+        activos = Tratamiento.objects.filter(
+            lote__granja=granja, completado=False,
+        ).select_related("lote", "medicamento")
+        for t in activos:
+            if t.periodo_retiro_dias > 0 and t.fecha_inicio:
+                fecha_limite = t.fecha_inicio + timezone.timedelta(days=t.periodo_retiro_dias)
+                if hoy <= fecha_limite:
+                    alertas.append(AlertaSanitariaType(
+                        tipo="tratamiento_activo",
+                        severidad="alta",
+                        mensaje=(
+                            f"BLOQUEO SANITARIO: {t.medicamento.nombre} en lote {t.lote.codigo}. "
+                            f"Retiro hasta {fecha_limite}"
+                        ),
+                        referencia_id=str(t.id),
+                        fecha_referencia=fecha_limite,
+                    ))
+
+        galpones = Galpon.objects.filter(granja=granja, activo=True)
+        for g in galpones:
+            ultima = LimpiezaGalpon.objects.filter(galpon=g).order_by("-fecha").first()
+            if not ultima or (hoy - ultima.fecha).days > 30:
+                alertas.append(AlertaSanitariaType(
+                    tipo="limpieza_pendiente",
+                    severidad="media",
+                    mensaje=f"Galpón {g.codigo} sin limpieza en más de 30 días",
+                    referencia_id=str(g.id),
+                    fecha_referencia=ultima.fecha if ultima else None,
+                ))
+
+        ultimo_roedores = ControlRoedores.objects.filter(granja=granja).order_by("-fecha").first()
+        if not ultimo_roedores or (hoy - ultimo_roedores.fecha).days > 60:
+            alertas.append(AlertaSanitariaType(
+                tipo="roedores_vencido",
+                severidad="baja",
+                mensaje="Control de roedores vencido (último hace más de 60 días)",
+                referencia_id=str(ultimo_roedores.id) if ultimo_roedores else None,
+                fecha_referencia=ultimo_roedores.fecha if ultimo_roedores else None,
+            ))
+
+        return alertas
+
+    # ============================================================
+    # MÓDULO AVES + TRAZABILIDAD (FASE 2)
+    # ============================================================
+    @strawberry.field
+    def registros_peso_lote(
+        self, info: Info, lote_id: strawberry.ID, dias: int = 90,
+    ) -> List[RegistroPesoType]:
+        _verificar_modulo(info, "aves")
+        desde = timezone.now().date() - timezone.timedelta(days=dias)
+        return list(
+            RegistroPeso.objects.filter(lote_id=lote_id, fecha__gte=desde)
+            .order_by("-fecha")
+        )
+
+    @strawberry.field
+    def incubaciones(
+        self, info: Info, lote_id: Optional[strawberry.ID] = None
+    ) -> List[IncubacionType]:
+        _verificar_modulo(info, "aves")
+        granja = _granja_por_defecto(info)
+        qs = Incubacion.objects.filter(granja=granja)
+        if lote_id:
+            qs = qs.filter(lote_id=lote_id)
+        return list(qs.order_by("-fecha_inicio"))
+
+    @strawberry.field
+    def ventas_aves(
+        self, info: Info, lote_id: Optional[strawberry.ID] = None
+    ) -> List[VentaAveType]:
+        _verificar_modulo(info, "aves")
+        granja = _granja_por_defecto(info)
+        qs = VentaAve.objects.filter(granja=granja)
+        if lote_id:
+            qs = qs.filter(lote_id=lote_id)
+        return list(qs.order_by("-fecha"))
+
+    @strawberry.field
+    def costos_lote(
+        self, info: Info, lote_id: strawberry.ID
+    ) -> List[CostoLoteType]:
+        _verificar_modulo(info, "aves")
+        return list(CostoLote.objects.filter(lote_id=lote_id).order_by("-fecha"))
+
+    @strawberry.field
+    def resumen_trazabilidad_lote(
+        self, info: Info, lote_id: strawberry.ID,
+    ) -> ResumenTrazabilidadLoteType:
+        _verificar_modulo(info, "aves")
+        granja = _granja_por_defecto(info)
+        lote = Lote.objects.filter(pk=lote_id, granja=granja).first()
+        if not lote:
+            raise ValueError("Lote no encontrado.")
+
+        pesos = RegistroPeso.objects.filter(lote=lote).order_by("-fecha")[:10]
+        peso_promedio = (
+            sum(p.peso_promedio_g for p in pesos) / len(pesos)
+            if pesos else Decimal("0")
+        )
+        total_consumo = (
+            ConsumoInsumo.objects.filter(lote=lote).aggregate(t=Sum("cantidad"))["t"]
+            or Decimal("0")
+        )
+        costo_total = (
+            CostoLote.objects.filter(lote=lote).aggregate(t=Sum("monto"))["t"]
+            or Decimal("0")
+        )
+        ventas_qs = VentaAve.objects.filter(lote=lote)
+        ventas_total = ventas_qs.aggregate(t=Sum("cantidad"))["t"] or 0
+        ingresos = ventas_qs.aggregate(t=Sum("monto_total"))["t"] or Decimal("0")
+
+        aves = lote.aves_actuales or 1
+        conversion = (total_consumo / Decimal(aves)) if aves else Decimal("0")
+        costo_por_ave = costo_total / Decimal(aves) if aves else Decimal("0")
+
+        return ResumenTrazabilidadLoteType(
+            lote_id=str(lote.pk),
+            lote_codigo=lote.codigo,
+            aves_actuales=lote.aves_actuales,
+            peso_promedio_g=peso_promedio,
+            total_consumo_kg=total_consumo,
+            conversion_alimenticia=conversion,
+            costo_total_lote=costo_total,
+            costo_por_ave=costo_por_ave,
+            ventas_aves_total=ventas_total,
+            ingresos_aves=ingresos,
+            margen_lote=ingresos - costo_total,
+        )
+
 
 # ============================================================
 # MUTATIONS
 # ============================================================
 @strawberry.type
 class Mutation:
+
+    # ---- MÓDULOS (FASE 0) ----
+    @strawberry.mutation
+    def actualizar_modulos(
+        self, info: Info, modulos: List[str],
+    ) -> ConfiguracionGranjaType:
+        requerir_rol(info, ["superadmin", "admin_granja"])
+        granja = _granja_por_defecto(info)
+        config, _ = ConfiguracionGranja.objects.get_or_create(granja=granja)
+        config.modulos_activos = modulos
+        config.save()
+        user = usuario_desde_request(info.context.request)
+        Auditoria.objects.create(
+            granja=granja, usuario=user, usuario_texto=user.username,
+            accion="editar", modelo="ConfiguracionGranja",
+            objeto_id=str(config.id),
+            detalle={"modulos": config.modulos_activos},
+        )
+        return config
+
+    @strawberry.mutation
+    def forzar_modulos_granja(
+        self, info: Info, granja_id: strawberry.ID, modulos: List[str],
+    ) -> ConfiguracionGranjaType:
+        requerir_superadmin(info)
+        granja = Granja.objects.filter(pk=granja_id).first()
+        if not granja:
+            raise ValueError("Granja no encontrada.")
+        config, _ = ConfiguracionGranja.objects.get_or_create(granja=granja)
+        config.modulos_activos = modulos
+        config.save()
+        return config
 
     @strawberry.mutation
     def crear_pedido_cliente(
@@ -820,7 +1146,6 @@ class Mutation:
         email: Optional[str] = None,
         direccion: Optional[str] = None,
     ) -> PedidoClientePayload:
-        """Registra el carrito público en los flujos actuales de huevos y abono."""
         huevos = huevos or []
         abono = abono or []
         if not huevos and not abono:
@@ -1047,7 +1372,6 @@ class Mutation:
     def solicitar_activacion_cliente(
         self, granja_id: strawberry.ID, email: str, dni: str, telefono: str,
     ) -> bool:
-        """Envía un código temporal al email ya guardado en el perfil del cliente."""
         email_limpio = email.strip()
         clientes = Cliente.objects.filter(
             granja_id=granja_id, email__iexact=email_limpio, dni=dni.strip(), activo=True,
@@ -1279,7 +1603,6 @@ class Mutation:
         self, info: Info, granja_id: strawberry.ID, codigo: str, capacidad_aves: int,
     ) -> GalponType:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_produccion"])
-        
         granja = Granja.objects.filter(pk=granja_id).first()
         if not granja:
             raise ValueError("La granja no existe.")
@@ -1301,7 +1624,7 @@ class Mutation:
     ) -> LoteType:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_produccion"])
         granja, galpon = _granja_de_galpon(galpon_id)
-        
+
         etapas_validas = {e[0] for e in Lote.ETAPAS}
         if etapa not in etapas_validas:
             raise ValueError(f"Etapa inválida: {etapa}")
@@ -1453,12 +1776,12 @@ class Mutation:
             raise ValueError("Insumo no encontrado.")
         if insumo.tipo != "alimento":
             raise ValueError("Solo puedes registrar consumo de insumos de tipo 'alimento'.")
-        
+
         with transaction.atomic():
             consumo = ConsumoInsumo.objects.select_for_update().filter(
                 lote=lote, insumo=insumo, fecha=fecha
             ).first()
-            
+
             if consumo:
                 diferencia = cantidad - consumo.cantidad
                 if diferencia > 0 and insumo.stock < diferencia:
@@ -1476,7 +1799,7 @@ class Mutation:
                     cantidad=cantidad, observaciones=observaciones,
                 )
                 Insumo.objects.filter(pk=insumo.pk).update(stock=F("stock") - cantidad)
-        
+
         return consumo
 
     @strawberry.mutation
@@ -1505,7 +1828,7 @@ class Mutation:
         medicamento = Insumo.objects.filter(pk=medicamento_id, granja=granja, tipo="medicamento").first()
         if not medicamento:
             raise ValueError("Medicamento no encontrado o no es de tipo medicamento.")
-        
+
         return MedicamentoEnAlimento.objects.create(
             granja=granja, alimento=alimento, medicamento=medicamento,
             dosis_por_kg=dosis_por_kg, fecha_inicio=fecha_inicio,
@@ -1542,14 +1865,14 @@ class Mutation:
                     "huevos_descartados": huevos_descartados,
                 },
             )
-            
+
             if created:
                 def sumar_stock(calidad, cantidad_huevos):
                     if cantidad_huevos <= 0:
                         return
                     productos = Producto.objects.filter(
-                        granja=lote.granja, 
-                        tipo="huevo", 
+                        granja=lote.granja,
+                        tipo="huevo",
                         calidad=calidad,
                         activo=True
                     )
@@ -1562,7 +1885,7 @@ class Mutation:
                             unidades = cantidad_huevos / 12
                         else:
                             unidades = cantidad_huevos
-                        
+
                         prod.stock += Decimal(str(unidades))
                         prod.save(update_fields=["stock"])
 
@@ -1578,21 +1901,26 @@ class Mutation:
         self, info: Info, nombre: str, presentacion: str, calidad: str,
         precio_unitario: Decimal, stock: int = 0, stock_minimo: int = 0,
         tipo: str = "huevo", unidad_medida: str = "unidad",
+        imagen: Optional[Upload] = None,
     ) -> ProductoType:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_almacen"])
         granja = _granja_por_defecto(info)
-        return Producto.objects.create(
+        producto = Producto.objects.create(
             granja=granja, nombre=nombre, tipo=tipo,
             presentacion=presentacion, calidad=calidad,
             unidad_medida=unidad_medida,
             precio_unitario=precio_unitario, stock=stock, stock_minimo=stock_minimo,
         )
+        if imagen:
+            producto.imagen.save(imagen.filename, imagen.file)
+        return producto
 
     @strawberry.mutation
     def actualizar_producto(
         self, info: Info, id: strawberry.ID, precio_unitario: Optional[Decimal] = None,
         stock: Optional[int] = None, stock_minimo: Optional[int] = None,
         activo: Optional[bool] = None,
+        imagen: Optional[Upload] = None,
     ) -> Optional[ProductoType]:
         requerir_rol(info, ["superadmin", "admin_granja", "encargado_almacen"])
         producto = Producto.objects.filter(pk=id).first()
@@ -1604,6 +1932,8 @@ class Mutation:
         ]:
             if valor is not None:
                 setattr(producto, campo, valor)
+        if imagen:
+            producto.imagen.save(imagen.filename, imagen.file)
         producto.save()
         return producto
 
@@ -1618,7 +1948,7 @@ class Mutation:
         producto = Producto.objects.filter(pk=producto_id).first()
         if not producto:
             raise ValueError("Producto no encontrado.")
-        
+
         return TarifaProducto.objects.create(
             granja=producto.granja, producto=producto,
             precio=precio, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin,
@@ -1752,7 +2082,7 @@ class Mutation:
                         f"Stock insuficiente para '{producto.nombre}'. "
                         f"Disponible: {producto.stock}, solicitado: {d.cantidad}."
                     )
-                
+
                 precio_final = producto.precio_unitario
                 tarifa = TarifaProducto.objects.filter(
                     producto=producto,
@@ -1761,7 +2091,7 @@ class Mutation:
                 ).filter(
                     Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=fecha_pedido)
                 ).order_by("-fecha_inicio").first()
-                
+
                 if tarifa:
                     precio_final = tarifa.precio
 
@@ -1834,16 +2164,16 @@ class Mutation:
 
             detalles = pedido.detalles.select_related("producto")
             tiene_huevos = any(d.producto.tipo == "huevo" for d in detalles)
-            
+
             if tiene_huevos:
                 hoy = fecha or timezone.now().date()
                 hace_30_dias = hoy - timezone.timedelta(days=30)
-                
+
                 consumos_recientes = ConsumoInsumo.objects.filter(
                     granja=pedido.granja,
                     fecha__gte=hace_30_dias,
                 ).select_related("insumo", "lote")
-                
+
                 for consumo in consumos_recientes:
                     meds = MedicamentoEnAlimento.objects.filter(
                         alimento=consumo.insumo,
@@ -1851,7 +2181,7 @@ class Mutation:
                     ).filter(
                         Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=consumo.fecha)
                     ).select_related("medicamento")
-                    
+
                     for med in meds:
                         if med.periodo_retiro_dias > 0:
                             fecha_limite = consumo.fecha + timezone.timedelta(days=med.periodo_retiro_dias)
@@ -1911,7 +2241,7 @@ class Mutation:
             responsable=responsable, observaciones=observaciones,
         )
 
-    # ---- ACTUALIZAR CONFIGURACIÓN DE LA TIENDA ----
+    # ---- CONFIGURACIÓN DE LA TIENDA ----
     @strawberry.mutation
     def actualizar_configuracion_tienda(
         self, info: Info,
@@ -2056,6 +2386,230 @@ class Mutation:
             monto=monto, metodo=metodo, usuario=user,
         )
         return pago
+
+    # ============================================================
+    # MÓDULO SANIDAD (FASE 1)
+    # ============================================================
+    @strawberry.mutation
+    def crear_vacuna(
+        self, info: Info, nombre: str, enfermedad: str, tipo: str = "viva",
+        laboratorio: str = "", dosis_recomendada: str = "",
+        via_administracion: str = "", periodo_retiro_dias: int = 0,
+    ) -> VacunaType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        return Vacuna.objects.create(
+            nombre=nombre, enfermedad=enfermedad, tipo=tipo,
+            laboratorio=laboratorio, dosis_recomendada=dosis_recomendada,
+            via_administracion=via_administracion,
+            periodo_retiro_dias=periodo_retiro_dias,
+        )
+
+    @strawberry.mutation
+    def crear_plan_sanitario(
+        self, info: Info, lote_id: strawberry.ID, vacuna_id: strawberry.ID,
+        fecha_programada: date, dosis: str = "", responsable: str = "",
+        observaciones: str = "",
+    ) -> PlanSanitarioType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        granja = _granja_por_defecto(info)
+        lote = Lote.objects.filter(pk=lote_id, granja=granja).first()
+        if not lote:
+            raise ValueError("Lote no encontrado en esta granja.")
+        vacuna = Vacuna.objects.filter(pk=vacuna_id, activo=True).first()
+        if not vacuna:
+            raise ValueError("Vacuna no encontrada.")
+        return PlanSanitario.objects.create(
+            lote=lote, vacuna=vacuna, fecha_programada=fecha_programada,
+            dosis=dosis, responsable=responsable, observaciones=observaciones,
+        )
+
+    @strawberry.mutation
+    def aplicar_vacuna(
+        self, info: Info, plan_id: strawberry.ID,
+        fecha_aplicacion: Optional[date] = None,
+        responsable: Optional[str] = None,
+    ) -> Optional[PlanSanitarioType]:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        plan = PlanSanitario.objects.filter(pk=plan_id).first()
+        if not plan:
+            return None
+        plan.aplicada = True
+        plan.fecha_aplicacion = fecha_aplicacion or timezone.now().date()
+        if responsable is not None:
+            plan.responsable = responsable
+        plan.save()
+        return plan
+
+    @strawberry.mutation
+    def crear_tratamiento(
+        self, info: Info, lote_id: strawberry.ID, medicamento_id: strawberry.ID,
+        dosis: str, fecha_inicio: date, fecha_fin: Optional[date] = None,
+        periodo_retiro_dias: int = 0, motivo: str = "",
+    ) -> TratamientoType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        granja = _granja_por_defecto(info)
+        lote = Lote.objects.filter(pk=lote_id, granja=granja).first()
+        if not lote:
+            raise ValueError("Lote no encontrado.")
+        medicamento = Insumo.objects.filter(pk=medicamento_id, granja=granja).first()
+        if not medicamento:
+            raise ValueError("Medicamento no encontrado.")
+        return Tratamiento.objects.create(
+            lote=lote, medicamento=medicamento, dosis=dosis,
+            fecha_inicio=fecha_inicio, fecha_fin=fecha_fin,
+            periodo_retiro_dias=periodo_retiro_dias, motivo=motivo,
+        )
+
+    @strawberry.mutation
+    def completar_tratamiento(
+        self, info: Info, id: strawberry.ID, fecha_fin: Optional[date] = None,
+    ) -> Optional[TratamientoType]:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        t = Tratamiento.objects.filter(pk=id).first()
+        if not t:
+            return None
+        t.completado = True
+        if fecha_fin:
+            t.fecha_fin = fecha_fin
+        elif not t.fecha_fin:
+            t.fecha_fin = timezone.now().date()
+        t.save()
+        return t
+
+    @strawberry.mutation
+    def registrar_limpieza(
+        self, info: Info, galpon_id: strawberry.ID, fecha: date,
+        tipo: str = "limpieza", productos_usados: str = "",
+        responsable: str = "",
+    ) -> LimpiezaGalponType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        granja, galpon = _granja_de_galpon(galpon_id)
+        return LimpiezaGalpon.objects.create(
+            galpon=galpon, fecha=fecha, tipo=tipo,
+            productos_usados=productos_usados, responsable=responsable,
+        )
+
+    @strawberry.mutation
+    def registrar_control_roedores(
+        self, info: Info, fecha: date, ubicacion: str,
+        tipo: str = "", productos_usados: str = "",
+        responsable: str = "", observaciones: str = "",
+    ) -> ControlRoedoresType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_sanidad"])
+        _verificar_modulo(info, "sanidad")
+        granja = _granja_por_defecto(info)
+        return ControlRoedores.objects.create(
+            granja=granja, fecha=fecha, ubicacion=ubicacion, tipo=tipo,
+            productos_usados=productos_usados, responsable=responsable,
+            observaciones=observaciones,
+        )
+
+    # ============================================================
+    # MÓDULO AVES + TRAZABILIDAD (FASE 2)
+    # ============================================================
+    @strawberry.mutation
+    def registrar_peso(
+        self, info: Info, lote_id: strawberry.ID, fecha: date,
+        peso_promedio_g: Decimal, muestra: int = 0,
+        observaciones: str = "",
+    ) -> RegistroPesoType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_produccion"])
+        _verificar_modulo(info, "aves")
+        lote = Lote.objects.filter(pk=lote_id, granja=_granja_por_defecto(info)).first()
+        if not lote:
+            raise ValueError("Lote no encontrado.")
+        if peso_promedio_g <= 0:
+            raise ValueError("El peso promedio debe ser mayor a 0.")
+        return RegistroPeso.objects.create(
+            lote=lote, fecha=fecha, peso_promedio_g=peso_promedio_g,
+            muestra=muestra, observaciones=observaciones,
+        )
+
+    @strawberry.mutation
+    def registrar_incubacion(
+        self, info: Info, lote_id: Optional[strawberry.ID],
+        fecha_inicio: date, huevos_incubados: int,
+        fecha_eclosion_estimada: Optional[date] = None,
+        observaciones: str = "",
+    ) -> IncubacionType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_produccion"])
+        _verificar_modulo(info, "aves")
+        granja = _granja_por_defecto(info)
+        lote = None
+        if lote_id:
+            lote = Lote.objects.filter(pk=lote_id, granja=granja).first()
+            if not lote:
+                raise ValueError("Lote no encontrado.")
+        if huevos_incubados <= 0:
+            raise ValueError("La cantidad de huevos debe ser mayor a 0.")
+        return Incubacion.objects.create(
+            granja=granja, lote=lote, fecha_inicio=fecha_inicio,
+            huevos_incubados=huevos_incubados,
+            fecha_eclosion_estimada=fecha_eclosion_estimada,
+            observaciones=observaciones,
+        )
+
+    @strawberry.mutation
+    def registrar_venta_ave(
+        self, info: Info, lote_id: strawberry.ID, fecha: date,
+        cantidad: int, precio_unitario: Decimal,
+        cliente_id: Optional[strawberry.ID] = None,
+        observaciones: str = "",
+    ) -> VentaAveType:
+        requerir_rol(info, ["superadmin", "admin_granja", "encargado_ventas"])
+        _verificar_modulo(info, "aves")
+        granja = _granja_por_defecto(info)
+        lote = Lote.objects.filter(pk=lote_id, granja=granja).first()
+        if not lote:
+            raise ValueError("Lote no encontrado.")
+        if cantidad <= 0:
+            raise ValueError("La cantidad debe ser mayor a 0.")
+        if cantidad > lote.aves_actuales:
+            raise ValueError(
+                f"No puedes vender {cantidad} aves. Solo hay {lote.aves_actuales}."
+            )
+        cliente = None
+        if cliente_id:
+            cliente = Cliente.objects.filter(pk=cliente_id, granja=granja).first()
+            if not cliente:
+                raise ValueError("Cliente no encontrado.")
+
+        with transaction.atomic():
+            venta = VentaAve.objects.create(
+                granja=granja, lote=lote, cliente=cliente, fecha=fecha,
+                cantidad=cantidad, precio_unitario=precio_unitario,
+                monto_total=Decimal(cantidad) * precio_unitario,
+                observaciones=observaciones,
+            )
+            MovimientoAve.objects.create(
+                lote=lote, galpon=lote.galpon, tipo="venta",
+                cantidad=cantidad, fecha=fecha,
+                motivo=f"Venta de aves #{venta.id}",
+            )
+        return venta
+
+    @strawberry.mutation
+    def registrar_costo_lote(
+        self, info: Info, lote_id: strawberry.ID, fecha: date,
+        categoria: str, monto: Decimal, descripcion: str = "",
+    ) -> CostoLoteType:
+        requerir_rol(info, ["superadmin", "admin_granja"])
+        _verificar_modulo(info, "aves")
+        lote = Lote.objects.filter(pk=lote_id, granja=_granja_por_defecto(info)).first()
+        if not lote:
+            raise ValueError("Lote no encontrado.")
+        if monto <= 0:
+            raise ValueError("El monto debe ser mayor a 0.")
+        return CostoLote.objects.create(
+            lote=lote, fecha=fecha, categoria=categoria,
+            monto=monto, descripcion=descripcion,
+        )
 
 
 # ============================================================

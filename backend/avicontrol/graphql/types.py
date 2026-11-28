@@ -15,7 +15,9 @@ from avicontrol.models import (
     Pedido, DetallePedido, Venta, Auditoria, ConfiguracionTienda,
     Proveedor, Compra, DetalleCompra, MovimientoAve,
     ConsumoInsumo, MedicamentoEnAlimento, TarifaProducto,
+    ConfiguracionGranja,
 )
+
 
 @strawberry_django.type(Granja)
 class GranjaType:
@@ -178,6 +180,16 @@ class ProductoType:
     stock_minimo: Decimal
     activo: bool
     creado_en: datetime
+
+    # --- NUEVO CAMPO: Imagen del producto ---
+    @strawberry.field
+    def imagen_url(self, info: Info) -> Optional[str]:
+        if self.imagen:
+            request = getattr(info.context, "request", None)
+            if request:
+                return request.build_absolute_uri(self.imagen.url)
+            return self.imagen.url
+        return None
 
 
 @strawberry_django.type(Producto)
@@ -383,6 +395,7 @@ class CompraCompletaType:
     total: Decimal
     creado_en: datetime
 
+
 @strawberry_django.type(ConsumoInsumo)
 class ConsumoInsumoType:
     id: strawberry.ID
@@ -408,6 +421,7 @@ class MedicamentoEnAlimentoType:
     observaciones: str
     creado_en: datetime
 
+
 @strawberry_django.type(TarifaProducto)
 class TarifaProductoType:
     id: strawberry.ID
@@ -421,6 +435,7 @@ class TarifaProductoType:
     activo: bool
     creado_en: datetime
 
+
 # ============================================================
 # MÓDULO COMERCIAL DE GALLINAZA (ABONO)
 # ============================================================
@@ -428,6 +443,7 @@ from avicontrol.gallinaza_models import (
     ProductoGallinaza, EntradaGallinaza, VentaGallinaza,
     DetalleVentaGallinaza, PagoGallinaza, MovimientoGallinaza,
 )
+
 
 @strawberry_django.type(ProductoGallinaza)
 class ProductoGallinazaType:
@@ -527,6 +543,7 @@ class MovimientoGallinazaType:
     referencia: str
     created_at: datetime
 
+
 @strawberry.type
 class ProduccionDiariaType:
     fecha: date
@@ -535,3 +552,216 @@ class ProduccionDiariaType:
     segunda: int
     tercera: int
     descartados: int
+
+
+# ============================================================
+# FASE 0: CONFIGURACIÓN DE MÓDULOS POR GRANJA
+# ============================================================
+from avicontrol.modulos import MODULOS_DISPONIBLES
+
+
+@strawberry.type
+class ModuloDisponibleType:
+    codigo: str
+    nombre: str
+    descripcion: str
+    obligatorio: bool
+    default: bool
+    activo: bool
+
+
+@strawberry_django.type(ConfiguracionGranja)
+class ConfiguracionGranjaType:
+    id: strawberry.ID
+    granja_id: strawberry.ID
+    actualizado_en: datetime
+
+    @strawberry.field
+    def modulos_activos(self) -> List[str]:
+        return list(self.modulos_activos or [])
+
+    @strawberry.field
+    def modulos(self) -> List[ModuloDisponibleType]:
+        activos = set(self.modulos_activos or [])
+        return [
+            ModuloDisponibleType(
+                codigo=codigo,
+                nombre=meta["nombre"],
+                descripcion=meta["descripcion"],
+                obligatorio=meta["obligatorio"],
+                default=meta["default"],
+                activo=codigo in activos,
+            )
+            for codigo, meta in MODULOS_DISPONIBLES.items()
+        ]
+
+# ============================================================
+# MÓDULO SANIDAD + BIOSEGURIDAD
+# ============================================================
+from avicontrol.models import (
+    Vacuna, PlanSanitario, Tratamiento, LimpiezaGalpon, ControlRoedores,
+)
+
+
+@strawberry_django.type(Vacuna)
+class VacunaType:
+    id: strawberry.ID
+    nombre: str
+    enfermedad: str
+    tipo: str
+    laboratorio: str
+    dosis_recomendada: str
+    via_administracion: str
+    periodo_retiro_dias: int
+    activo: bool
+    creado_en: datetime
+
+
+@strawberry_django.type(PlanSanitario)
+class PlanSanitarioType:
+    id: strawberry.ID
+    fecha_programada: date
+    dosis: str
+    aplicada: bool
+    fecha_aplicacion: Optional[date]
+    responsable: str
+    observaciones: str
+    creado_en: datetime
+
+    @strawberry.field
+    def lote(self) -> "LoteType":
+        return self.lote
+
+    @strawberry.field
+    def vacuna(self) -> VacunaType:
+        return self.vacuna
+
+
+@strawberry_django.type(Tratamiento)
+class TratamientoType:
+    id: strawberry.ID
+    dosis: str
+    fecha_inicio: date
+    fecha_fin: Optional[date]
+    periodo_retiro_dias: int
+    motivo: str
+    completado: bool
+    creado_en: datetime
+
+    @strawberry.field
+    def lote(self) -> "LoteType":
+        return self.lote
+
+    @strawberry.field
+    def medicamento(self) -> "InsumoType":
+        return self.medicamento
+
+
+@strawberry_django.type(LimpiezaGalpon)
+class LimpiezaGalponType:
+    id: strawberry.ID
+    fecha: date
+    tipo: str
+    productos_usados: str
+    responsable: str
+    creado_en: datetime
+
+    @strawberry.field
+    def galpon(self) -> "GalponType":
+        return self.galpon
+
+
+@strawberry_django.type(ControlRoedores)
+class ControlRoedoresType:
+    id: strawberry.ID
+    fecha: date
+    tipo: str
+    ubicacion: str
+    productos_usados: str
+    responsable: str
+    observaciones: str
+    creado_en: datetime
+
+
+@strawberry.type
+class AlertaSanitariaType:
+    tipo: str          # "vacuna_proxima", "tratamiento_activo", "limpieza_pendiente", "roedores_vencido"
+    severidad: str     # "alta", "media", "baja"
+    mensaje: str
+    referencia_id: Optional[strawberry.ID]
+    fecha_referencia: Optional[date]
+
+
+# ============================================================
+# MÓDULO AVES + TRAZABILIDAD
+# ============================================================
+from avicontrol.models import (
+    RegistroPeso, Incubacion, VentaAve, CostoLote,
+)
+
+
+@strawberry_django.type(RegistroPeso)
+class RegistroPesoType:
+    id: strawberry.ID
+    fecha: date
+    peso_promedio_kg: Decimal
+    muestras: int
+    observaciones: str
+    creado_en: datetime
+
+
+@strawberry_django.type(Incubacion)
+class IncubacionType:
+    id: strawberry.ID
+    fecha_puesta: date
+    fecha_eclosion: Optional[date]
+    huevos_incubados: int
+    pollitos_nacidos: Optional[int]
+    porcentaje_natalidad: Optional[Decimal]
+    observaciones: str
+    creado_en: datetime
+
+    @strawberry.field
+    def lote_madre(self) -> "LoteType":
+        return self.lote_madre
+
+
+@strawberry_django.type(VentaAve)
+class VentaAveType:
+    id: strawberry.ID
+    fecha: date
+    tipo: str
+    cantidad: int
+    peso_total_kg: Optional[Decimal]
+    precio_unitario: Decimal
+    total: Decimal
+    observaciones: str
+    creado_en: datetime
+
+    @strawberry.field
+    def lote(self) -> "LoteType":
+        return self.lote
+
+    @strawberry.field
+    def cliente(self) -> "ClienteBasicoType":
+        return self.cliente
+
+
+@strawberry_django.type(CostoLote)
+class CostoLoteType:
+    id: strawberry.ID
+    alimento_total: Decimal
+    medicinas_total: Decimal
+    vacunas_total: Decimal
+    mano_obra_total: Decimal
+    huevos_producidos: int
+    costo_por_huevo: Decimal
+    actualizado_en: datetime
+
+    @strawberry.field
+    def costo_total(self) -> Decimal:
+        return self.costo_total
+
+    @strawberry.field
+    def lote(self) -> "LoteType":
+        return self.lote

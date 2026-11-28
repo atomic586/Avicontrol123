@@ -28,6 +28,9 @@ import GalponDetalle from "./pages/GalponDetalle";
 import LoteDetalle from "./pages/LoteDetalle";
 import Granjas from "./pages/Granjas";
 import Productos from "./pages/Productos";
+import Aves from "./pages/Aves";
+import Sanidad from "./pages/Sanidad";                                    // ← NUEVO
+import { ModuloGate } from "./components/ModuloGate";
 import { ThemeProvider } from "./theme/ThemeContext";
 
 function RutaAdmin({ children }) {
@@ -51,23 +54,25 @@ function Rutas() {
 
   return (
     <Routes>
-      {/* 1. RUTAS DE ADMINISTRACIÓN (Protegidas) - Van primero para evitar conflictos */}
+      {/* 1. RUTAS DE ADMINISTRACIÓN (Protegidas) */}
       <Route path="/dashboard" element={<RutaAdmin><Dashboard /></RutaAdmin>} />
       <Route path="/granjas" element={<RutaAdmin><Granjas /></RutaAdmin>} />
       <Route path="/granjas/:id" element={<RutaAdmin><GranjaDetalle /></RutaAdmin>} />
       <Route path="/galpones/:id" element={<RutaAdmin><GalponDetalle /></RutaAdmin>} />
       <Route path="/lotes/:id" element={<RutaAdmin><LoteDetalle /></RutaAdmin>} />
-      <Route path="/abono" element={<RutaAdmin><Abono /></RutaAdmin>} />
+      <Route path="/abono" element={<RutaAdmin><ModuloGate codigo="abono"><Abono /></ModuloGate></RutaAdmin>} />
       <Route path="/clientes" element={<RutaAdmin><Clientes /></RutaAdmin>} />
       <Route path="/insumos" element={<RutaAdmin><Insumos /></RutaAdmin>} />
       <Route path="/produccion" element={<RutaAdmin><Produccion /></RutaAdmin>} />
+      <Route path="/aves" element={<RutaAdmin><ModuloGate codigo="aves"><Aves /></ModuloGate></RutaAdmin>} />
+      <Route path="/sanidad" element={<RutaAdmin><ModuloGate codigo="sanidad"><Sanidad /></ModuloGate></RutaAdmin>} />
       <Route path="/medicamentos-alimento" element={<RutaAdmin><MedicamentosAlimento /></RutaAdmin>} />
       <Route path="/pedidos" element={<RutaAdmin><Pedidos /></RutaAdmin>} />
       <Route path="/entregas" element={<RutaAdmin><Entregas /></RutaAdmin>} />
       <Route path="/ventas" element={<RutaAdmin><Ventas /></RutaAdmin>} />
       <Route path="/proveedores" element={<RutaAdmin><Proveedores /></RutaAdmin>} />
       <Route path="/compras" element={<RutaAdmin><Compras /></RutaAdmin>} />
-      <Route path="/reportes" element={<RutaAdmin><Reportes /></RutaAdmin>} />
+      <Route path="/reportes" element={<RutaAdmin><ModuloGate codigo="reportes_avanzados"><Reportes /></ModuloGate></RutaAdmin>} />
       <Route path="/configuracion" element={<RutaAdmin><Configuracion /></RutaAdmin>} />
       <Route path="/usuarios" element={<RutaAdmin><Usuarios /></RutaAdmin>} />
       <Route path="/productos" element={<RutaAdmin><Productos /></RutaAdmin>} />
@@ -75,7 +80,7 @@ function Rutas() {
       {/* 2. LOGIN ADMIN */}
       <Route path="/admin-login" element={usuario ? <Navigate to="/dashboard" replace /> : <LoginAdmin />} />
 
-      {/* 3. PORTAL PÚBLICO Y CLIENTES (Van al final) */}
+      {/* 3. PORTAL PÚBLICO Y CLIENTES */}
       <Route path="/" element={<PortalPublico />} />
       <Route path="/hacer-pedido" element={<HacerPedido />} />
       <Route path="/login" element={cliente ? <Navigate to="/mis-pedidos" replace /> : <LoginCliente />} />

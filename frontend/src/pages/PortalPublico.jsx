@@ -29,8 +29,8 @@ const CONFIG_QUERY = gql`
 `;
 
 const CATALOGO_PUBLICO = gql`
-  query CatalogoPublico {
-    productos(soloActivos: true) {
+  query CatalogoPublico($granjaId: ID) {
+    productos(soloActivos: true, granjaId: $granjaId) {
       id
       nombre
       tipo
@@ -44,14 +44,23 @@ const CATALOGO_PUBLICO = gql`
 `;
 
 export default function PortalPublico() {
-  const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, { fetchPolicy: "network-only" });
-  const granjas = dataGranjas?.granjas ?? [];
-  const granjaPrincipal = granjas[0];
-  const { data: dataConfig } = useQuery(CONFIG_QUERY, {
-    variables: { granjaId: granjaPrincipal?.id || null },
+  const { data: dataGranjas } = useQuery(GRANJAS_PUBLICAS, {
     fetchPolicy: "network-only",
   });
-  const { data: dataProductos, loading } = useQuery(CATALOGO_PUBLICO, { fetchPolicy: "network-only" });
+  const granjas = dataGranjas?.granjas ?? [];
+  const granjaPrincipal = granjas[0];
+
+  const { data: dataConfig } = useQuery(CONFIG_QUERY, {
+    variables: { granjaId: granjaPrincipal?.id || null },
+    skip: !granjaPrincipal?.id,
+    fetchPolicy: "network-only",
+  });
+
+  const { data: dataProductos, loading } = useQuery(CATALOGO_PUBLICO, {
+    variables: { granjaId: granjaPrincipal?.id || null },
+    skip: !granjaPrincipal?.id,
+    fetchPolicy: "network-only",
+  });
 
   const c = dataConfig?.configuracionTienda;
   const imagenHero = c?.heroImagenUrlEfectiva || c?.heroImagenUrl || "";
@@ -84,10 +93,16 @@ export default function PortalPublico() {
             {c?.heroSubtitulo || "Elige la calidad y la cantidad que necesitas."}
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link to="/hacer-pedido" className="bg-white text-brand-700 font-black py-3 px-6 rounded-xl text-base hover:bg-brand-50 transition">
+            <Link
+              to="/hacer-pedido"
+              className="bg-white text-brand-700 font-black py-3 px-6 rounded-xl text-base hover:bg-brand-50 transition"
+            >
               {c?.heroCtaTexto || "Hacer un pedido"}
             </Link>
-            <a href="#catalogo" className="border-2 border-white text-white font-bold py-3 px-6 rounded-xl text-base hover:bg-white/10 transition">
+            <a
+              href="#catalogo"
+              className="border-2 border-white text-white font-bold py-3 px-6 rounded-xl text-base hover:bg-white/10 transition"
+            >
               Ver productos
             </a>
           </div>

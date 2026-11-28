@@ -57,6 +57,7 @@ class Granja(models.Model):
             return self.imagen_hero.url
         return self.imagen_hero_url or ""
 
+
 # ============================================================
 # 1. ROLES
 # ============================================================
@@ -66,6 +67,7 @@ class Rol(models.Model):
     ENCARGADO_VENTAS = "encargado_ventas"
     ENCARGADO_PRODUCCION = "encargado_produccion"
     ENCARGADO_ALMACEN = "encargado_almacen"
+    ENCARGADO_SANIDAD = "encargado_sanidad"
 
     ROLES = [
         (SUPERADMIN, "Superadministrador"),
@@ -73,6 +75,7 @@ class Rol(models.Model):
         (ENCARGADO_VENTAS, "Encargado de Ventas"),
         (ENCARGADO_PRODUCCION, "Encargado de Producción"),
         (ENCARGADO_ALMACEN, "Encargado de Almacén"),
+        (ENCARGADO_SANIDAD, "Encargado de Sanidad"),
     ]
 
     codigo = models.CharField(max_length=30, choices=ROLES, unique=True)
@@ -387,6 +390,7 @@ class Producto(models.Model):
     TIPOS = [
         ("huevo", "Huevo"),
         ("abono", "Abono (gallinaza)"),
+        ("ave", "Ave"),
         ("otro", "Otro"),
     ]
     PRESENTACIONES = [
@@ -428,6 +432,9 @@ class Producto(models.Model):
     stock_minimo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     activo = models.BooleanField(default=True)
     creado_en = models.DateTimeField(auto_now_add=True)
+
+    # --- NUEVO CAMPO: Imagen del producto ---
+    imagen = models.ImageField(upload_to='productos/', blank=True, null=True)
 
     class Meta:
         db_table = "producto"
@@ -887,6 +894,7 @@ class TarifaProducto(models.Model):
     def __str__(self):
         return f"{self.producto.nombre} — {self.precio} Bs. ({self.nombre_temporada or 'Base'})"
 
+
 # ============================================================
 # 21. MÓDULO COMERCIAL DE GALLINAZA (ABONO)
 # ============================================================
@@ -898,3 +906,279 @@ from .gallinaza_models import (  # noqa: E402,F401
     PagoGallinaza,
     MovimientoGallinaza,
 )
+
+
+# ============================================================
+# CONFIGURACIÓN DE MÓDULOS POR GRANJA (Fase 0)
+# ============================================================
+from avicontrol.modulos import MODULOS_DEFAULT, normalizar_modulos
+
+
+class ConfiguracionGranja(models.Model):
+    granja = models.OneToOneField(
+        Granja, on_delete=models.CASCADE, related_name="configuracion_modulos"   # <-- CAMBIO
+    )
+    modulos_activos = models.JSONField(default=list)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "configuracion_granja"
+        verbose_name = "Configuración de granja"
+        verbose_name_plural = "Configuraciones de granja"
+
+    def __str__(self):
+        return f"Config {self.granja.codigo} ({len(self.modulos_activos)} módulos)"
+
+    def tiene_modulo(self, codigo: str) -> bool:
+        return codigo in (self.modulos_activos or [])
+
+    def save(self, *args, **kwargs):
+        self.modulos_activos = normalizar_modulos(self.modulos_activos)
+        super().save(*args, **kwargs)
+
+
+# Señal: crear configuración automáticamente al crear granja
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=Granja)
+def _crear_configuracion_granja(sender, instance, created, **kwargs):
+    if created:
+        ConfiguracionGranja.objects.get_or_create(
+            granja=instance,
+            defaults={"modulos_activos": list(MODULOS_DEFAULT)},
+        )
+
+# ============================================================
+# MÓDULO SANIDAD + BIOSEGURIDAD
+# ============================================================
+class Vacuna(models.Model):
+    TIPOS = [("viva", "Viva"), ("inactivada", "Inactivada")]
+
+    nombre = models.CharField(max_length=150)
+    enfermedad = models.CharField(max_length=150)
+    tipo = models.CharField(max_length=20, choices=TIPOS, default="viva")
+    laboratorio = models.CharField(max_length=100, blank=True)
+    dosis_recomendada = models.CharField(max_length=50, blank=True)
+    via_administracion = models.CharField(max_length=50, blank=True)
+    periodo_retiro_dias = models.PositiveIntegerField(default=0)
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "vacuna"
+        ordering = ["enfermedad", "nombre"]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.enfermedad})"
+
+
+class PlanSanitario(models.Model):
+    lote = models.ForeignKey(
+        Lote, on_delete=models.CASCADE, related_name="planes_sanitarios"
+    )
+    vacuna = models.ForeignKey(Vacuna, on_delete=models.PROTECT)
+    fecha_programada = models.DateField()
+    dosis = models.CharField(max_length=50, blank=True)
+    aplicada = models.BooleanField(default=False)
+    fecha_aplicacion = models.DateField(null=True, blank=True)
+    responsable = models.CharField(max_length=100, blank=True)
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "plan_sanitario"
+        ordering = ["fecha_programada"]
+        indexes = [
+            models.Index(fields=["lote", "aplicada"]),
+            models.Index(fields=["fecha_programada"]),
+        ]
+
+    def __str__(self):
+        return f"{self.lote.codigo} - {self.vacuna.nombre} ({self.fecha_programada})"
+
+
+class Tratamiento(models.Model):
+    lote = models.ForeignKey(
+        Lote, on_delete=models.CASCADE, related_name="tratamientos"
+    )
+    medicamento = models.ForeignKey(Insumo, on_delete=models.PROTECT)
+    dosis = models.CharField(max_length=50)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField(null=True, blank=True)
+    periodo_retiro_dias = models.PositiveIntegerField(default=0)
+    motivo = models.CharField(max_length=200, blank=True)
+    completado = models.BooleanField(default=False)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "tratamiento"
+        ordering = ["-fecha_inicio"]
+
+    def __str__(self):
+        return f"{self.lote.codigo} - {self.medicamento.nombre}"
+
+
+class LimpiezaGalpon(models.Model):
+    TIPOS = [
+        ("limpieza", "Limpieza"),
+        ("desinfeccion", "Desinfección"),
+        ("vacio_sanitario", "Vacío Sanitario"),
+    ]
+
+    galpon = models.ForeignKey(
+        Galpon, on_delete=models.CASCADE, related_name="limpiezas"
+    )
+    fecha = models.DateField()
+    tipo = models.CharField(max_length=50, choices=TIPOS, default="limpieza")
+    productos_usados = models.TextField(blank=True)
+    responsable = models.CharField(max_length=100, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "limpieza_galpon"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.galpon.codigo} - {self.get_tipo_display()} ({self.fecha})"
+
+
+class ControlRoedores(models.Model):
+    granja = models.ForeignKey(
+        Granja, on_delete=models.CASCADE, related_name="controles_roedores"
+    )
+    fecha = models.DateField()
+    tipo = models.CharField(max_length=50, blank=True)
+    ubicacion = models.CharField(max_length=200)
+    productos_usados = models.TextField(blank=True)
+    responsable = models.CharField(max_length=100, blank=True)
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "control_roedores"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.granja.codigo} - {self.ubicacion} ({self.fecha})"
+
+# ============================================================
+# MÓDULO AVES + TRAZABILIDAD
+# ============================================================
+class RegistroPeso(models.Model):
+    lote = models.ForeignKey(
+        Lote, on_delete=models.CASCADE, related_name="pesos"
+    )
+    fecha = models.DateField()
+    peso_promedio_kg = models.DecimalField(max_digits=5, decimal_places=2)
+    muestras = models.PositiveIntegerField(default=0)
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "registro_peso"
+        ordering = ["-fecha"]
+        indexes = [models.Index(fields=["lote", "fecha"])]
+
+    def __str__(self):
+        return f"{self.lote.codigo} - {self.fecha} ({self.peso_promedio_kg} kg)"
+
+
+class Incubacion(models.Model):
+    lote_madre = models.ForeignKey(
+        Lote, on_delete=models.PROTECT, related_name="incubaciones"
+    )
+    fecha_puesta = models.DateField()
+    fecha_eclosion = models.DateField(null=True, blank=True)
+    huevos_incubados = models.PositiveIntegerField()
+    pollitos_nacidos = models.PositiveIntegerField(null=True, blank=True)
+    porcentaje_natalidad = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "incubacion"
+        ordering = ["-fecha_puesta"]
+
+    def __str__(self):
+        return f"{self.lote_madre.codigo} - {self.fecha_puesta}"
+
+    def save(self, *args, **kwargs):
+        if self.pollitos_nacidos is not None and self.huevos_incubados:
+            self.porcentaje_natalidad = round(
+                (self.pollitos_nacidos / self.huevos_incubados) * 100, 2
+            )
+        super().save(*args, **kwargs)
+
+
+class VentaAve(models.Model):
+    TIPOS = [("viva", "Viva"), ("faenada", "Faenada")]
+
+    lote = models.ForeignKey(
+        Lote, on_delete=models.PROTECT, related_name="ventas_aves"
+    )
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT)
+    fecha = models.DateField()
+    tipo = models.CharField(max_length=20, choices=TIPOS, default="viva")
+    cantidad = models.PositiveIntegerField()
+    peso_total_kg = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    total = models.DecimalField(max_digits=12, decimal_places=2)
+    observaciones = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "venta_ave"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.lote.codigo} - {self.cantidad} aves ({self.fecha})"
+
+    def save(self, *args, **kwargs):
+        self.total = self.cantidad * self.precio_unitario
+        super().save(*args, **kwargs)
+
+
+class CostoLote(models.Model):
+    lote = models.OneToOneField(
+        Lote, on_delete=models.CASCADE, related_name="costo"
+    )
+    alimento_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    medicinas_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    vacunas_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    mano_obra_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    huevos_producidos = models.PositiveIntegerField(default=0)
+    costo_por_huevo = models.DecimalField(max_digits=8, decimal_places=4, default=0)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "costo_lote"
+        verbose_name = "Costo de lote"
+        verbose_name_plural = "Costos de lote"
+
+    def __str__(self):
+        return f"Costo {self.lote.codigo}"
+
+    @property
+    def costo_total(self):
+        return (
+            self.alimento_total
+            + self.medicinas_total
+            + self.vacunas_total
+            + self.mano_obra_total
+        )
+
+    def recalcular(self):
+        self.huevos_producidos = Produccion.objects.filter(
+            lote=self.lote
+        ).aggregate(t=Sum("total"))["t"] or 0
+        self.costo_por_huevo = (
+            self.costo_total / self.huevos_producidos
+            if self.huevos_producidos > 0
+            else Decimal("0")
+        )
+        self.save()
